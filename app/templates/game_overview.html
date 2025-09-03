@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}游戏概览 - DK游戏数据平台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>游戏概览</h2>
+    <p>查看所有游戏的详细统计信息</p>
+</div>
+
+<div class="games-table">
+    {% if games %}
+        <table>
+            <thead>
+                <tr>
+                    <th>游戏名称</th>
+                    <th>总玩家数</th>
+                    <th>活跃玩家</th>
+                    <th>收入</th>
+                    <th>最后更新</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for game in games %}
+                <tr>
+                    <td>{{ game.game_name }}</td>
+                    <td>{{ game.total_players }}</td>
+                    <td>{{ game.active_players }}</td>
+                    <td>¥{{ "%.2f"|format(game.revenue) }}</td>
+                    <td>{{ game.updated_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="no-data">
+            <p>暂无游戏数据</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

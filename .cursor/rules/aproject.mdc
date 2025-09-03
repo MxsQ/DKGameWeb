@@ -1,0 +1,24 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- You can @ files here
+- You can use markdown but dont have to
+
+1.这是项目的最高规则问题，如果其它的规则文件与本规则文件冲突，以本规则文件的为主
+2.使用中文进行回复
+3.这个项目使用python构建一个web，同时使用本地数据库mysql和本地网页
+4.无法创建文件时，提供命令行创建步骤
+5.python环境为python3，相关的命令行命令要匹配
+6.[py.mdc](mdc:.cursor/rules/py.mdc) 规定了如何去写一个python文件
+7.所有提问的功能，只实现最小范围，不要做未声明的功能
+8.[flask.mdc](mdc:.cursor/rules/flask.mdc) 规定了这个项目下的flask框架结构
+9.在我有需要的时候，把项目结构更新到下面的 “当前项目结构” 区域
+10.[db.mdc](mdc:.cursor/rules/db.mdc) 包含了所有的表结构，使用它来了解所有的表结构，确保正确访问
+11. [views.py](mdc:app/views.py) 只做路由接收请求，不处理具体事务，将请求转发到对应的处理类进行处理
+
+# 当前项目结构

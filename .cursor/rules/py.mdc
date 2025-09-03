@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 规定如何写一个python文件
+
+1. 所有函数需要写明这个函数的作用
+2. 所有函数体，如无必要仅保留精简的注释使阅读连贯

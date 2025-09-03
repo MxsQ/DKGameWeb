@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}数据录入 - DK游戏数据平台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>数据录入</h2>
+    <p>导入彩虹数据Excel文件</p>
+</div>
+
+<!-- 数据录入表单 -->
+<div class="data-entry-section">
+    <div class="form-container">
+        <form id="import-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="game-select">选择游戏:</label>
+                <select id="game-select" name="game_id" required>
+                    <option value="">请选择游戏</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="file-input">选择Excel文件:</label>
+                <input type="file" id="file-input" name="file" accept=".xlsx,.xls" required>
+                <div class="file-info">
+                    <small>支持格式：.xlsx, .xls</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn-primary" id="import-btn">
+                    <span class="btn-text">开始导入</span>
+                    <span class="btn-loading" style="display: none;">导入中...</span>
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- 导入结果 -->
+    <div id="import-result" class="import-result" style="display: none;">
+        <div class="result-header">
+            <h3>导入结果</h3>
+        </div>
+        <div class="result-content">
+            <div id="result-message"></div>
+            <div id="result-details"></div>
+        </div>
+    </div>
+    
+    <!-- 字段说明 -->
+    <div class="field-description">
+        <h3>支持的Excel字段</h3>
+        <div class="field-grid">
+            <div class="field-item">
+                <strong>日期</strong>
+                <span>数据日期</span>
+            </div>
+            <div class="field-item">
+                <strong>渠道</strong>
+                <span>数据来源渠道</span>
+            </div>
+            <div class="field-item">
+                <strong>新增用户</strong>
+                <span>新增用户数量</span>
+            </div>
+            <div class="field-item">
+                <strong>DA新增用户</strong>
+                <span>DA新增用户数量</span>
+            </div>
+            <div class="field-item">
+                <strong>活跃用户</strong>
+                <span>活跃用户数量</span>
+            </div>
+            <div class="field-item">
+                <strong>新增留存_新增次留率</strong>
+                <span>次留数据（如：42.59% → 存储为 0.4259）</span>
+            </div>
+            <div class="field-item">
+                <strong>新增留存_新增7留率</strong>
+                <span>七留数据（如：25.30% → 存储为 0.253）</span>
+            </div>
+            <div class="field-item">
+                <strong>付费数据_付费用户</strong>
+                <span>付费用户数量</span>
+            </div>
+            <div class="field-item">
+                <strong>付费数据_收入</strong>
+                <span>收入金额</span>
+            </div>
+            <div class="field-item">
+                <strong>付费数据_ARPU</strong>
+                <span>ARPU值</span>
+            </div>
+            <div class="field-item">
+                <strong>付费数据_ARPPU</strong>
+                <span>ARPPU值</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 加载游戏列表
+    loadGames();
+    
+    // 绑定表单提交事件
+    document.getElementById('import-form').addEventListener('submit', handleImport);
+    
+    // 绑定文件选择事件
+    document.getElementById('file-input').addEventListener('change', handleFileSelect);
+});
+
+// 加载游戏列表
+function loadGames() {
+    fetch('/api/games/all')
+        .then(response => response.json())
+        .then(games => {
+            const select = document.getElementById('game-select');
+            games.forEach(game => {
+                const option = document.createElement('option');
+                option.value = game.id;
+                option.textContent = game.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('加载游戏列表失败:', error);
+            showError('加载游戏列表失败');
+        });
+}
+
+// 处理文件选择
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        console.log('选择的文件:', file.name, '大小:', file.size, '字节');
+    }
+}
+
+// 处理导入
+function handleImport(event) {
+    event.preventDefault();
+    
+    const gameId = document.getElementById('game-select').value;
+    const fileInput = document.getElementById('file-input');
+    const file = fileInput.files[0];
+    
+    if (!gameId) {
+        showError('请选择游戏');
+        return;
+    }
+    
+    if (!file) {
+        showError('请选择Excel文件');
+        return;
+    }
+    
+    // 检查文件类型
+    const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel'
+    ];
+    
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(xlsx|xls)$/i)) {
+        showError('请选择有效的Excel文件（.xlsx 或 .xls）');
+        return;
+    }
+    
+    // 显示加载状态
+    setLoadingState(true);
+    
+    // 创建FormData
+    const formData = new FormData();
+    formData.append('game_id', gameId);
+    formData.append('file', file);
+    
+    // 发送请求
+    fetch('/api/import/rainbow', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log('响应状态:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('导入结果:', data);
+        if (data.inserted !== undefined && data.updated !== undefined) {
+            const message = `导入完成！新增 ${data.inserted} 条记录，更新 ${data.updated} 条记录，共处理 ${data.total} 条记录`;
+            showSuccess(message);
+        } else {
+            showError(data.message || '导入失败');
+        }
+    })
+    .catch(error => {
+        console.error('导入失败:', error);
+        showError('导入失败，请重试');
+    })
+    .finally(() => {
+        setLoadingState(false);
+    });
+}
+
+// 设置加载状态
+function setLoadingState(loading) {
+    const btn = document.getElementById('import-btn');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoading = btn.querySelector('.btn-loading');
+    
+    if (loading) {
+        btn.disabled = true;
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+    } else {
+        btn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoading.style.display = 'none';
+    }
+}
+
+// 显示成功消息
+function showSuccess(message) {
+    const resultDiv = document.getElementById('import-result');
+    const messageDiv = document.getElementById('result-message');
+    const detailsDiv = document.getElementById('result-details');
+    
+    resultDiv.style.display = 'block';
+    resultDiv.className = 'import-result success';
+    messageDiv.innerHTML = `<div class="success-message">✅ ${message}</div>`;
+    detailsDiv.innerHTML = '';
+    
+    // 滚动到结果区域
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 显示错误消息
+function showError(message) {
+    const resultDiv = document.getElementById('import-result');
+    const messageDiv = document.getElementById('result-message');
+    const detailsDiv = document.getElementById('result-details');
+    
+    resultDiv.style.display = 'block';
+    resultDiv.className = 'import-result error';
+    messageDiv.innerHTML = `<div class="error-message">❌ ${message}</div>`;
+    detailsDiv.innerHTML = '';
+    
+    // 滚动到结果区域
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+{% endblock %} 

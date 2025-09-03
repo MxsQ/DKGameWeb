@@ -1,0 +1,33 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 这个文件规定了怎样去读取数据库
+1. 下面的内容中【】表示数据库中的表
+2. 所有数据表结构都从这个文件中进行解读
+3. 字段的表示结构为[字段名] + [类型] + [解释]，其实[解释]不在代码中，只用来对字段值进行释义
+
+
+# 数据库名：game_db ， 密码：300217
+
+【game】为游戏表：
+id varchar 游戏ID
+name varchar 游戏名
+
+
+【gameData】为游戏数据表：
+id varchar 唯一标识
+date datatime 数据日期
+category varchar 包类别
+channel varchar 渠道
+daNewUser int DA新增用户
+newUser int 新增用户
+active int 活跃用户
+payUser int 付费用户
+gain float 收入
+ARPU float up值
+ARPPU float 付费up值
+DAY1 float 一留
+DAY7 float 七留
+gameID varchar 游戏ID

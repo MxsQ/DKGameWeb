@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - DK游戏数据平台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>游戏概览</h2>
+    <p>欢迎来到DK游戏数据平台，这里展示了所有游戏的关键数据指标。</p>
+</div>
+
+<div class="stats-grid">
+    {% if games %}
+        {% for game in games %}
+        <div class="stat-card">
+            <h3>{{ game.game_name }}</h3>
+            <div class="stat-item">
+                <span class="label">总玩家数:</span>
+                <span class="value">{{ game.total_players }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">活跃玩家:</span>
+                <span class="value">{{ game.active_players }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="label">收入:</span>
+                <span class="value">¥{{ "%.2f"|format(game.revenue) }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="no-data">
+            <p>暂无游戏数据</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

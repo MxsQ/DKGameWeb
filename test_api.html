@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API测试</title>
+</head>
+<body>
+    <h1>API测试页面</h1>
+    <button onclick="testAPI()">测试API</button>
+    <div id="result"></div>
+
+    <script>
+    function testAPI() {
+        const today = new Date();
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        
+        const params = new URLSearchParams({
+            start_date: weekAgo.toISOString().split('T')[0],
+            end_date: today.toISOString().split('T')[0]
+        });
+        
+        const url = `/api/game-data?${params}`;
+        console.log('测试URL:', url);
+        
+        fetch(url)
+            .then(response => {
+                console.log('状态:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('数据:', data);
+                document.getElementById('result').innerHTML = 
+                    `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            })
+            .catch(error => {
+                console.error('错误:', error);
+                document.getElementById('result').innerHTML = 
+                    `<p style="color: red;">错误: ${error}</p>`;
+            });
+    }
+    </script>
+</body>
+</html>

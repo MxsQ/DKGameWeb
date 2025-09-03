@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}数据详情 - DK游戏数据平台{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>数据详情</h2>
+    <p>查看游戏的详细数据指标</p>
+</div>
+
+<!-- 筛选控制区域 -->
+<div class="filter-section">
+    <div class="filter-controls">
+        <div class="date-range-picker">
+            <label for="start-date">开始日期:</label>
+            <input type="date" id="start-date" class="date-input">
+            
+            <label for="end-date">结束日期:</label>
+            <input type="date" id="end-date" class="date-input">
+        </div>
+        
+        <div class="game-selector">
+            <label for="game-select">选择游戏:</label>
+            <select id="game-select" class="game-select">
+                <option value="">全部游戏</option>
+            </select>
+        </div>
+        
+        <button id="query-btn" class="btn-primary">查询数据</button>
+    </div>
+</div>
+
+<!-- 图表区块 -->
+<div class="chart-section">
+    <div class="section-header">
+        <h3>数据图表</h3>
+    </div>
+    <div class="chart-container">
+        <div class="chart-placeholder">
+            <p>图表区域 - 待实现</p>
+        </div>
+    </div>
+</div>
+
+<!-- 报表区块 -->
+<div class="data-table-section">
+    <div class="section-header">
+        <h3>报表</h3>
+        <div class="table-info">
+            <span id="data-count">共 0 条记录</span>
+        </div>
+    </div>
+    
+    <!-- 数据维度功能区 -->
+    <div class="dimension-controls">
+        <div class="dimension-group">
+            <label>时间维度:</label>
+            <div class="radio-group">
+                <label class="radio-item">
+                    <input type="radio" name="time-group" value="day" checked>
+                    <span>日</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="time-group" value="week">
+                    <span>周</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="time-group" value="month">
+                    <span>月</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="dimension-group">
+            <label>分组维度:</label>
+            <div class="radio-group">
+                <label class="radio-item">
+                    <input type="radio" name="channel-group" value="category" checked>
+                    <span>分包</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="channel-group" value="channel">
+                    <span>渠道</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th class="channel-col">渠道</th>
+                    <th>日期</th>
+                    <th>包类别</th>
+                    <th>新增</th>
+                    <th>DA新增</th>
+                    <th>活跃</th>
+                    <th>收入</th>
+                    <th>ARPU</th>
+                    <th>次留</th>
+                    <th>七留</th>
+                </tr>
+            </thead>
+            <tbody id="data-tbody">
+                <tr>
+                    <td colspan="10" class="no-data-message">请选择时间段并点击查询</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 设置默认日期范围（近一周）
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+    document.getElementById('start-date').value = weekAgo.toISOString().split('T')[0];
+    
+    // 加载游戏列表
+    loadGames();
+    
+    // 绑定查询按钮事件
+    document.getElementById('query-btn').addEventListener('click', queryData);
+    
+    // 绑定维度选择事件，选择后自动更新数据
+    document.querySelectorAll('input[name="time-group"]').forEach(radio => {
+        radio.addEventListener('change', queryData);
+    });
+    
+    document.querySelectorAll('input[name="channel-group"]').forEach(radio => {
+        radio.addEventListener('change', queryData);
+    });
+    
+    // 页面加载时自动查询一次
+    queryData();
+});
+
+// 加载游戏列表
+function loadGames() {
+    fetch('/api/games/all')
+        .then(response => response.json())
+        .then(games => {
+            const select = document.getElementById('game-select');
+            games.forEach(game => {
+                const option = document.createElement('option');
+                option.value = game.id;
+                option.textContent = game.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('加载游戏列表失败:', error);
+        });
+}
+
+// 查询数据
+function queryData() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    const gameId = document.getElementById('game-select').value;
+    
+    // 获取维度参数
+    const timeGroup = document.querySelector('input[name="time-group"]:checked').value;
+    const channelGroup = document.querySelector('input[name="channel-group"]:checked').value;
+    
+    console.log('查询参数:', { startDate, endDate, gameId, timeGroup, channelGroup });
+    
+    if (!startDate || !endDate) {
+        alert('请选择开始和结束日期');
+        return;
+    }
+    
+    // 构建查询参数
+    const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+        time_group: timeGroup,
+        channel_group: channelGroup
+    });
+    
+    if (gameId) {
+        params.append('game_id', gameId);
+    }
+    
+    const url = `/api/game-data?${params}`;
+    console.log('请求URL:', url);
+    
+    // 显示加载状态
+    const tbody = document.getElementById('data-tbody');
+    tbody.innerHTML = '<tr><td colspan="10" class="loading">正在加载数据...</td></tr>';
+    
+    fetch(url)
+        .then(response => {
+            console.log('响应状态:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('返回数据:', data);
+            displayData(data);
+        })
+        .catch(error => {
+            console.error('查询数据失败:', error);
+            tbody.innerHTML = '<tr><td colspan="10" class="error">查询失败，请重试</td></tr>';
+        });
+}
+
+// 显示数据
+function displayData(data) {
+    const tbody = document.getElementById('data-tbody');
+    const countSpan = document.getElementById('data-count');
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="no-data-message">暂无数据</td></tr>';
+        countSpan.textContent = '共 0 条记录';
+        return;
+    }
+    
+    // 更新记录数
+    countSpan.textContent = `共 ${data.length} 条记录`;
+    
+    // 清空表格
+    tbody.innerHTML = '';
+    
+    // 添加数据行
+    data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="channel-col">${row.channel || '-'}</td>
+            <td>${formatDate(row.date)}</td>
+            <td>${row.category || '-'}</td>
+            <td>${formatNumber(row.newUser)}</td>
+            <td>${formatNumber(row.daNewUser)}</td>
+            <td>${formatNumber(row.active)}</td>
+            <td>${formatCurrency(row.gain)}</td>
+            <td>${formatCurrency(row.ARPU)}</td>
+            <td>${formatPercentage(row.DAY1)}</td>
+            <td>${formatPercentage(row.DAY7)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// 格式化日期
+function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    
+    // 获取当前选择的时间维度
+    const timeGroup = document.querySelector('input[name="time-group"]:checked').value;
+    
+    // 如果后端已经返回了格式化好的日期字符串（如周维度的"8/25-8/31"），直接返回
+    if (timeGroup === 'week' && dateStr.includes('-') && dateStr.includes('/')) {
+        return dateStr;
+    }
+    
+    // 如果后端已经返回了格式化好的日期字符串（如月维度的"2025-8"），直接返回
+    if (timeGroup === 'month' && dateStr.includes('-') && !dateStr.includes('/')) {
+        return dateStr;
+    }
+    
+    // 对于日维度或其他情况，尝试解析日期
+    const date = new Date(dateStr);
+    
+    // 检查日期是否有效
+    if (isNaN(date.getTime())) {
+        return dateStr; // 如果解析失败，直接返回原字符串
+    }
+    
+    switch (timeGroup) {
+        case 'day':
+            // 日：年/月/日
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            return `${year}/${month}/${day}`;
+        case 'week':
+            // 周：月/日-月/日
+            return formatWeekRange(date);
+        case 'month':
+            // 月：年-月
+            const monthYear = date.getFullYear();
+            const monthNum = date.getMonth() + 1;
+            return `${monthYear}-${monthNum}`;
+        default:
+            return date.toLocaleDateString('zh-CN');
+    }
+}
+
+// 格式化周范围
+function formatWeekRange(date) {
+    // 获取该周的开始日期（周一）
+    const startOfWeek = new Date(date);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // 调整为周一
+    startOfWeek.setDate(diff);
+    
+    // 获取该周的结束日期（周日）
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    
+    // 格式化显示：月/日-月/日
+    const startMonth = startOfWeek.getMonth() + 1;
+    const startDay = startOfWeek.getDate();
+    const endMonth = endOfWeek.getMonth() + 1;
+    const endDay = endOfWeek.getDate();
+    
+    if (startMonth === endMonth) {
+        // 同一个月内
+        return `${startMonth}/${startDay}-${endDay}`;
+    } else {
+        // 跨月
+        return `${startMonth}/${startDay}-${endMonth}/${endDay}`;
+    }
+}
+
+// 格式化数字
+function formatNumber(num) {
+    if (num === null || num === undefined) return '-';
+    return num.toLocaleString('zh-CN');
+}
+
+// 格式化货币
+function formatCurrency(amount) {
+    if (amount === null || amount === undefined) return '-';
+    return amount.toLocaleString('zh-CN', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+}
+
+// 格式化百分比
+function formatPercentage(value) {
+    if (value === null || value === undefined || value === 0 || value === 0.0) {
+        return '';
+    }
+    return `${(value * 100).toFixed(2)}%`;
+}
+</script>
+{% endblock %} 

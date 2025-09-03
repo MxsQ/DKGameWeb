@@ -1,0 +1,19 @@
+{
+    "channel_priority": [
+        "PC国服官方包",
+        "田地CPS",
+        "联想CPS",
+        "维护大师CPS",
+        "顺网CPS",
+        "360CPS",
+        "应用宝",
+        "马蹄更新CPS",
+        "TapTap",
+        "易乐游CPS",
+        "云更新CPS",
+        "未归因渠道(勿改)"
+    ],
+    "default_time_range_days": 7,
+    "default_time_group": "day",
+    "default_channel_group": "channel"
+}

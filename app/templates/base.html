@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DK游戏数据平台{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- 顶部栏 -->
+    <header class="top-bar">
+        <div class="container">
+            <h1 class="logo">DK游戏数据</h1>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <nav class="side-nav">
+                <div class="nav-section">
+                    <h3>游戏概览</h3>
+                    <ul>
+                        <li><a href="{{ url_for('main.game_overview') }}" class="nav-link" data-page="game-overview">游戏概览</a></li>
+                    </ul>
+                </div>
+                <div class="nav-section">
+                    <h3>数据详情</h3>
+                    <ul>
+                        <li><a href="{{ url_for('main.data_details') }}" class="nav-link" data-page="data-details">详细数据</a></li>
+                        <li><a href="{{ url_for('main.channel_analysis') }}" class="nav-link" data-page="channel-analysis">渠道分析</a></li>
+                    </ul>
+                </div>
+                <div class="nav-section">
+                    <h3>配置</h3>
+                    <ul>
+                        <li><a href="{{ url_for('main.data_entry') }}" class="nav-link">数据录入</a></li>
+                        <li><a href="{{ url_for('main.config_page') }}" class="nav-link">游戏配置</a></li>
+                    </ul>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- 内容显示区域 -->
+        <main class="content-area">
+            <div id="content-container">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

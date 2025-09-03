@@ -1,0 +1,1006 @@
+{% extends "base.html" %}
+
+{% block title %}渠道分析{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>渠道分析</h2>
+    
+    <!-- 时间选择器 -->
+    <div class="filter-section">
+        <div class="filter-group">
+            <label for="dateRange">时间范围：</label>
+            <input type="text" id="dateRange" class="date-range-input" placeholder="选择时间范围" readonly>
+        </div>
+    </div>
+    
+    <!-- 渠道选择 + 时间维度（同行） -->
+    <div class="channel-selection">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+            <h3 style="margin:0;">渠道选择</h3>
+            <div class="dimension-group" style="margin:0;">
+                <label>时间维度：</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="timeGroup" value="day" checked> 日</label>
+                    <label><input type="radio" name="timeGroup" value="week"> 周</label>
+                    <label><input type="radio" name="timeGroup" value="month"> 月</label>
+                </div>
+            </div>
+        </div>
+        <div class="channel-list" id="channelList">
+            <!-- 渠道选项将通过JavaScript动态加载 -->
+        </div>
+    </div>
+
+    <!-- 情况总览（简要文字展示） -->
+    <div class="charts-section" id="overviewSection">
+        <h3>情况总览</h3>
+        <div style="display:flex; flex-direction:column; gap:10px; padding: 0 0.5rem 0.5rem 0.5rem;">
+            <div class="overview-row row-1">
+                <div class="overview-item"><span class="ov-label">总新增</span><span class="ov-value" id="newUserTotalVal">-</span></div>
+                <div class="overview-item"><span class="ov-label">总活跃</span><span class="ov-value" id="activeTotalVal">-</span></div>
+                <div class="overview-item"><span class="ov-label">总收入</span><span class="ov-value" id="revenueTotalVal">-</span></div>
+            </div>
+            <div class="overview-row row-2">
+                <div class="overview-item"><span class="ov-label" id="newUserAvgLabel">-均新增</span><span class="ov-value" id="newUserAvgVal">-</span></div>
+                <div class="overview-item"><span class="ov-label" id="activeAvgLabel">-均活跃</span><span class="ov-value" id="activeAvgVal">-</span></div>
+                <div class="overview-item"><span class="ov-label" id="revenueAvgLabel">-均收入</span><span class="ov-value" id="revenueAvgVal">-</span></div>
+                <div class="overview-item"><span class="ov-label" id="arpuAvgLabel">-均ARPU</span><span class="ov-value" id="arpuAvgVal">-</span></div>
+            </div>
+            <div class="overview-row row-3">
+                <div class="overview-item"><span class="ov-label">新增平均排行</span><span class="ov-value" id="newUserRankAvgVal">-</span></div>
+                <div class="overview-item"><span class="ov-label">活跃平均排行</span><span class="ov-value" id="activeRankAvgVal">-</span></div>
+                <div class="overview-item"><span class="ov-label">收入平均排行</span><span class="ov-value" id="revenueRankAvgVal">-</span></div>
+                <div class="overview-item"><span class="ov-label">ARPU平均排行</span><span class="ov-value" id="arpuRankAvgVal">-</span></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图表展示区域 -->
+    <div class="charts-section">
+        <h3>游戏数据趋势</h3>
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h4>
+                    新增用户
+                    <span class="chart-meta">
+                        <span id="newUserTotal" class="meta-badge meta-total">总新增: -</span>
+                        <span id="newUserAvg" class="meta-badge meta-avg">均新增: -</span>
+                    </span>
+                </h4>
+                <canvas id="newUserChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4>
+                    活跃用户
+                    <span class="chart-meta">
+                        <span id="activeUserTotal" class="meta-badge meta-total">总活跃: -</span>
+                        <span id="activeUserAvg" class="meta-badge meta-avg">均活跃: -</span>
+                    </span>
+                </h4>
+                <canvas id="activeUserChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4>
+                    收入
+                    <span class="chart-meta">
+                        <span id="revenueTotal" class="meta-badge meta-total">总收入: -</span>
+                        <span id="revenueAvg" class="meta-badge meta-avg">均收入: -</span>
+                    </span>
+                </h4>
+                <canvas id="revenueChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4>
+                    ARPU
+                    <span class="chart-meta">
+                        <span id="arpuAvg" class="meta-badge meta-avg">人均ARPU: -</span>
+                    </span>
+                </h4>
+                <canvas id="arpuChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 数据排行趋势（移动到游戏数据趋势下方） -->
+    <div class="charts-section" id="rankChartsSection">
+        <h3>数据排行趋势</h3>
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h4>
+                    新增排行
+                    <span class="chart-meta">
+                        <span id="newUserRankAvg" class="meta-badge meta-avg">平均名次: -</span>
+                    </span>
+                </h4>
+                <canvas id="newUserRankChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4>
+                    活跃排行
+                    <span class="chart-meta">
+                        <span id="activeUserRankAvg" class="meta-badge meta-avg">平均名次: -</span>
+                    </span>
+                </h4>
+                <canvas id="activeUserRankChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4>
+                    收入排行
+                    <span class="chart-meta">
+                        <span id="revenueUserRankAvg" class="meta-badge meta-avg">平均名次: -</span>
+                    </span>
+                </h4>
+                <canvas id="revenueRankChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h4>
+                    ARPU排行
+                    <span class="chart-meta">
+                        <span id="arpuUserRankAvg" class="meta-badge meta-avg">平均名次: -</span>
+                    </span>
+                </h4>
+                <canvas id="arpuRankChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- 数据展示区域 -->
+    <div class="data-display">
+        <h3>渠道数据详情</h3>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>渠道</th>
+                        <th>新增用户</th>
+                        <th>DA新增用户</th>
+                        <th>活跃用户</th>
+                        <th>付费用户</th>
+                        <th>收入</th>
+                        <th>ARPU</th>
+                        <th>一留</th>
+                        <th>七留</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody">
+                    <tr class="no-data-message">
+                        <td colspan="10">请选择时间范围和渠道</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 引入日期选择器库 -->
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<!-- 引入Chart.js图表库 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// 全局变量
+let selectedChannel = null;
+let channelConfig = null;
+let charts = {
+    newUser: null,
+    activeUser: null,
+    revenue: null,
+    arpu: null,
+    rankNewUser: null,
+    rankActive: null,
+    rankRevenue: null,
+    rankArpu: null
+};
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDateRange();
+    loadChannelConfig();
+    initializeCharts();
+    setupEventListeners();
+});
+
+// 初始化日期范围选择器
+function initializeDateRange() {
+    // 默认选择近一周
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 7);
+    
+    $('#dateRange').daterangepicker({
+        startDate: startDate,
+        endDate: endDate,
+        locale: {
+            format: 'YYYY-MM-DD',
+            separator: ' 至 ',
+            applyLabel: '确定',
+            cancelLabel: '取消',
+            fromLabel: '从',
+            toLabel: '到',
+            customRangeLabel: '自定义',
+            weekLabel: 'W',
+            daysOfWeek: ['日', '一', '二', '三', '四', '五', '六'],
+            monthNames: ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'],
+            firstDay: 1
+        },
+        opens: 'left'
+    }, function(start, end, label) {
+        // 日期范围改变时重新加载数据
+        if (selectedChannel) {
+            loadChannelData();
+        }
+    });
+}
+
+// 初始化图表
+function initializeCharts() {
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: {
+            padding: { top: 4, right: 8, bottom: 0, left: 8 }
+        },
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+                backgroundColor: '#000',
+                titleColor: '#fff',
+                bodyColor: '#fff',
+                borderColor: '#000',
+                borderWidth: 1,
+                displayColors: false,
+                titleFont: { size: 16, weight: 'bold' },
+                bodyFont: { size: 14, weight: 'bold' },
+                callbacks: {
+                    // 上行：指标 + 数值；下行：日期
+                    title: function(context) {
+                        if (!context || !context.length) return '';
+                        const item = context[0];
+                        const label = item.dataset && item.dataset.label ? item.dataset.label : '';
+                        const value = item.parsed && item.parsed.y != null ? item.parsed.y : 0;
+                        let formatted;
+                        if (item.chart && item.chart.canvas && item.chart.canvas.id === 'revenueChart') {
+                            formatted = '¥' + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        } else if (item.chart && item.chart.canvas && item.chart.canvas.id === 'arpuChart') {
+                            formatted = '¥' + Number(value).toFixed(2);
+                        } else {
+                            formatted = Number(value).toLocaleString();
+                        }
+                        return `${label}：${formatted}`;
+                    },
+                    label: function(context) {
+                        const xLabel = context.label || (context.chart.data.labels ? context.chart.data.labels[context.dataIndex] : '');
+                        return `日期：${xLabel}`;
+                    },
+                    // 仅主数据集（index 0）显示
+                    labelFilter: function(item) { return item.datasetIndex === 0; }
+                },
+                // 兼容 Chart.js v3：使用 filter 替代 labelFilter（若 v4 不支持）
+                filter: function(item) { return item.datasetIndex === 0; }
+            }
+        },
+        scales: {
+            x: {
+                display: true,
+                title: {
+                    display: true,
+                    text: '日期',
+                    padding: { top: 0, bottom: 0 }
+                }
+                ,
+                ticks: {
+                    padding: 0
+                }
+            },
+            y: {
+                display: true,
+                beginAtZero: true,
+                title: {
+                    display: false
+                },
+                ticks: {
+                    padding: 0
+                }
+            }
+        },
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        onHover: function(event, elements, chart) {
+            event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+        }
+    };
+
+    // 新增用户图表
+    charts.newUser = new Chart(document.getElementById('newUserChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '新增用户',
+                data: [],
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: { ...chartOptions.plugins }
+        }
+    });
+
+    // 活跃用户图表
+    charts.activeUser = new Chart(document.getElementById('activeUserChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '活跃用户',
+                data: [],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: { ...chartOptions.plugins }
+        }
+    });
+
+    // 收入图表
+    charts.revenue = new Chart(document.getElementById('revenueChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '收入',
+                data: [],
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: { ...chartOptions.plugins }
+        }
+    });
+
+    // ARPU图表
+    charts.arpu = new Chart(document.getElementById('arpuChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'ARPU',
+                data: [],
+                borderColor: '#dc3545',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            ...chartOptions,
+            plugins: { ...chartOptions.plugins }
+        }
+    });
+
+    // 排行图表通用选项：Y 轴为名次，倒序（1 在顶部）
+    const rankOptions = {
+        ...chartOptions,
+        scales: {
+            x: {
+                display: true,
+                title: { display: true, text: '日期', padding: { top: 0, bottom: 0 } },
+                ticks: { padding: 0 }
+            },
+            y: {
+                display: true,
+                beginAtZero: true,
+                reverse: true,
+                min: 0,
+                ticks: {
+                    stepSize: 1,
+                    padding: 0,
+                    precision: 0,
+                    callback: function(value) { return Number(value).toFixed(0); }
+                }
+            }
+        }
+    };
+
+    charts.rankNewUser = new Chart(document.getElementById('newUserRankChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: '新增排行', data: [], borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.08)', tension: 0.4, fill: true }] },
+        options: rankOptions
+    });
+
+    charts.rankActive = new Chart(document.getElementById('activeUserRankChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: '活跃排行', data: [], borderColor: '#28a745', backgroundColor: 'rgba(40,167,69,0.08)', tension: 0.4, fill: true }] },
+        options: rankOptions
+    });
+
+    charts.rankRevenue = new Chart(document.getElementById('revenueRankChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: '收入排行', data: [], borderColor: '#ffc107', backgroundColor: 'rgba(255,193,7,0.08)', tension: 0.4, fill: true }] },
+        options: rankOptions
+    });
+
+    charts.rankArpu = new Chart(document.getElementById('arpuRankChart'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'ARPU排行', data: [], borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,0.08)', tension: 0.4, fill: true }] },
+        options: rankOptions
+    });
+}
+
+// 加载渠道配置
+async function loadChannelConfig() {
+    try {
+        const response = await fetch('/api/channel-config');
+        if (response.ok) {
+            channelConfig = await response.json();
+            renderChannelList();
+        } else {
+            console.error('加载渠道配置失败');
+        }
+    } catch (error) {
+        console.error('加载渠道配置出错:', error);
+    }
+}
+
+// 渲染渠道列表
+function renderChannelList() {
+    const channelList = document.getElementById('channelList');
+    channelList.innerHTML = '';
+    
+    if (channelConfig && channelConfig.channel_priority) {
+        channelConfig.channel_priority.forEach((channel, index) => {
+            const channelItem = document.createElement('div');
+            channelItem.className = 'channel-item';
+            if (index === 0) {
+                channelItem.classList.add('active');
+                selectedChannel = channel;
+            }
+            
+            channelItem.innerHTML = `
+                <input type="radio" name="channel" value="${channel}" id="channel_${index}" ${index === 0 ? 'checked' : ''}>
+                <label for="channel_${index}">${channel}</label>
+            `;
+            
+            channelItem.addEventListener('click', function() {
+                selectChannel(channel);
+            });
+            
+            channelList.appendChild(channelItem);
+        });
+        
+        // 默认加载第一个渠道的数据
+        if (selectedChannel) {
+            loadChannelData();
+        }
+    }
+}
+
+// 选择渠道
+function selectChannel(channel) {
+    selectedChannel = channel;
+    
+    // 更新UI状态
+    document.querySelectorAll('.channel-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.currentTarget.classList.add('active');
+    
+    // 重新加载数据
+    loadChannelData();
+}
+
+// 设置事件监听器
+function setupEventListeners() {
+    // 时间维度改变
+    document.querySelectorAll('input[name="timeGroup"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (selectedChannel) {
+                loadChannelData();
+            }
+        });
+    });
+}
+
+// 加载渠道数据
+async function loadChannelData() {
+    if (!selectedChannel) return;
+    
+    const dateRange = $('#dateRange').data('daterangepicker');
+    const startDate = dateRange.startDate.format('YYYY-MM-DD');
+    const endDate = dateRange.endDate.format('YYYY-MM-DD');
+    const timeGroup = document.querySelector('input[name="timeGroup"]:checked').value;
+    
+    // 显示加载状态
+    showLoading();
+    
+    try {
+        const response = await fetch(`/api/channel-analysis?channel=${encodeURIComponent(selectedChannel)}&start_date=${startDate}&end_date=${endDate}&time_group=${timeGroup}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            renderDataTable(data);
+            // 加载排行数据
+            await updateRankCharts();
+        } else {
+            showError('加载数据失败');
+        }
+    } catch (error) {
+        console.error('加载数据出错:', error);
+        showError('加载数据出错');
+    }
+}
+
+// 显示加载状态
+function showLoading() {
+    const tbody = document.getElementById('dataTableBody');
+    tbody.innerHTML = '<tr class="loading"><td colspan="10">加载中...</td></tr>';
+}
+
+// 显示错误信息
+function showError(message) {
+    const tbody = document.getElementById('dataTableBody');
+    tbody.innerHTML = `<tr class="error"><td colspan="10">${message}</td></tr>`;
+}
+
+// 渲染数据表格
+function renderDataTable(data) {
+    const tbody = document.getElementById('dataTableBody');
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr class="no-data-message"><td colspan="10">暂无数据</td></tr>';
+        // 清空图表数据
+        updateCharts([], []);
+        return;
+    }
+    
+    tbody.innerHTML = data.map(row => `
+        <tr>
+            <td>${row.date}</td>
+            <td class="channel-col">${row.channel || '-'}</td>
+            <td>${formatNumber(row.newUser)}</td>
+            <td>${formatNumber(row.daNewUser)}</td>
+            <td>${formatNumber(row.active)}</td>
+            <td>${formatNumber(row.payUser)}</td>
+            <td>${formatCurrency(row.gain)}</td>
+            <td>${formatCurrency(row.ARPU)}</td>
+            <td>${formatPercentage(row.DAY1)}</td>
+            <td>${formatPercentage(row.DAY7)}</td>
+        </tr>
+    `).join('');
+    
+    // 更新图表数据
+    updateCharts(data);
+}
+
+// 更新图表数据
+function updateCharts(data) {
+    if (!data || data.length === 0) {
+        // 清空所有图表
+        Object.values(charts).forEach(chart => {
+            if (chart) {
+                chart.data.labels = [];
+                chart.data.datasets = [];
+                chart.update();
+            }
+        });
+        return;
+    }
+    
+    // 准备图表数据（按时间升序：左->右）
+    const asc = [...data].reverse();
+    const labels = asc.map(row => row.date);
+    const newUserData = asc.map(row => row.newUser || 0);
+    const activeUserData = asc.map(row => row.active || 0);
+    const revenueData = asc.map(row => row.gain || 0);
+    const arpuData = asc.map(row => row.ARPU || 0);
+    
+    // 计算总额和均额
+    const totalNewUser = newUserData.reduce((sum, val) => sum + val, 0);
+    const avgNewUser = totalNewUser / newUserData.length;
+    const totalActive = activeUserData.reduce((sum, val) => sum + val, 0);
+    const avgActive = totalActive / activeUserData.length;
+    const totalRevenue = revenueData.reduce((sum, val) => sum + val, 0);
+    const avgRevenue = totalRevenue / revenueData.length;
+    const avgArpu = totalRevenue / totalActive; // 总收入 / 总活跃用户
+
+    // 更新标题上的汇总信息
+    const setMeta = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    // 根据维度展示“日/月/周”均
+    const tg = document.querySelector('input[name="timeGroup"]:checked').value;
+    const tgText = tg === 'day' ? '日' : (tg === 'week' ? '周' : '月');
+
+    setMeta('newUserTotal', `总新增: ${totalNewUser.toLocaleString()}`);
+    setMeta('newUserAvg', `${tgText}均新增: ${avgNewUser.toFixed(1)}`);
+    setMeta('activeUserTotal', `总活跃: ${totalActive.toLocaleString()}`);
+    setMeta('activeUserAvg', `${tgText}均活跃: ${avgActive.toFixed(1)}`);
+    setMeta('revenueTotal', `总收入: ¥${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    setMeta('revenueAvg', `${tgText}均收入: ¥${avgRevenue.toFixed(1)}`);
+    setMeta('arpuAvg', `人均ARPU: ¥${avgArpu.toFixed(2)}`);
+
+    // 同步“情况总览”总值/均值
+    // 情况总览行1
+    setMeta('newUserTotalVal', `${totalNewUser.toLocaleString()}`);
+    setMeta('activeTotalVal', `${totalActive.toLocaleString()}`);
+    setMeta('revenueTotalVal', `¥${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+    // 总览第一行不显示总ARPU
+
+    // 情况总览行2（y=日/周/月）
+    // 更新均值标签前缀（y=日/周/月）
+    const setAvgLabel = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setAvgLabel('newUserAvgLabel', `${tgText}均新增`);
+    setAvgLabel('activeAvgLabel', `${tgText}均活跃`);
+    setAvgLabel('revenueAvgLabel', `${tgText}均收入`);
+    setAvgLabel('arpuAvgLabel', `${tgText}均ARPU`);
+    setMeta('newUserAvgVal', `${avgNewUser.toFixed(1)}`);
+    setMeta('activeAvgVal', `${avgActive.toFixed(1)}`);
+    setMeta('revenueAvgVal', `¥${avgRevenue.toFixed(1)}`);
+    setMeta('arpuAvgVal', `¥${avgArpu.toFixed(2)}`);
+    
+    // 找到最高点和最低点
+    const newUserMaxIndex = newUserData.indexOf(Math.max(...newUserData));
+    const newUserMinIndex = newUserData.indexOf(Math.min(...newUserData));
+    const activeMaxIndex = activeUserData.indexOf(Math.max(...activeUserData));
+    const activeMinIndex = activeUserData.indexOf(Math.min(...activeUserData));
+    const revenueMaxIndex = revenueData.indexOf(Math.max(...revenueData));
+    const revenueMinIndex = revenueData.indexOf(Math.min(...revenueData));
+    const arpuMaxIndex = arpuData.indexOf(Math.max(...arpuData));
+    const arpuMinIndex = arpuData.indexOf(Math.min(...arpuData));
+    
+    // 更新新增用户图表
+    if (charts.newUser) {
+        charts.newUser.data.labels = labels;
+        charts.newUser.data.datasets = [
+            {
+                label: '新增用户',
+                data: newUserData,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: newUserData.map(() => 4.5),
+                pointHoverRadius: 6,
+                pointBackgroundColor: newUserData.map((_, index) => {
+                    if (index === newUserMaxIndex) return '#28a745'; // 绿色最高点
+                    if (index === newUserMinIndex) return '#dc3545'; // 红色最低点
+                    return '#ffffff'; // 普通为空心
+                }),
+                pointBorderColor: newUserData.map((_, index) => {
+                    if (index === newUserMaxIndex) return '#28a745';
+                    if (index === newUserMinIndex) return '#dc3545';
+                    return '#007bff';
+                }),
+                pointBorderWidth: newUserData.map((_, index) => (index === newUserMaxIndex || index === newUserMinIndex ? 3 : 2))
+            },
+            {
+                label: '均额',
+                data: new Array(newUserData.length).fill(avgNewUser),
+                borderColor: '#6c757d',
+                backgroundColor: 'transparent',
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+            }
+        ];
+        charts.newUser.update();
+    }
+    
+    // 更新活跃用户图表
+    if (charts.activeUser) {
+        charts.activeUser.data.labels = labels;
+        charts.activeUser.data.datasets = [
+            {
+                label: '活跃用户',
+                data: activeUserData,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: activeUserData.map(() => 4.5),
+                pointHoverRadius: 6,
+                pointBackgroundColor: activeUserData.map((_, index) => {
+                    if (index === activeMaxIndex) return '#28a745';
+                    if (index === activeMinIndex) return '#dc3545';
+                    return '#ffffff';
+                }),
+                pointBorderColor: activeUserData.map((_, index) => index === activeMaxIndex ? '#28a745' : (index === activeMinIndex ? '#dc3545' : '#28a745')),
+                pointBorderWidth: activeUserData.map((_, index) => (index === activeMaxIndex || index === activeMinIndex ? 3 : 2))
+            },
+            {
+                label: '均额',
+                data: new Array(activeUserData.length).fill(avgActive),
+                borderColor: '#6c757d',
+                backgroundColor: 'transparent',
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+            }
+        ];
+        charts.activeUser.update();
+    }
+    
+    // 更新收入图表
+    if (charts.revenue) {
+        charts.revenue.data.labels = labels;
+        charts.revenue.data.datasets = [
+            {
+                label: '收入',
+                data: revenueData,
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: revenueData.map(() => 4.5),
+                pointHoverRadius: 6,
+                pointBackgroundColor: revenueData.map((_, index) => {
+                    if (index === revenueMaxIndex) return '#28a745';
+                    if (index === revenueMinIndex) return '#dc3545';
+                    return '#ffffff';
+                }),
+                pointBorderColor: revenueData.map((_, index) => index === revenueMaxIndex ? '#28a745' : (index === revenueMinIndex ? '#dc3545' : '#ffc107')),
+                pointBorderWidth: revenueData.map((_, index) => (index === revenueMaxIndex || index === revenueMinIndex ? 3 : 2))
+            },
+            {
+                label: '均额',
+                data: new Array(revenueData.length).fill(avgRevenue),
+                borderColor: '#6c757d',
+                backgroundColor: 'transparent',
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+            }
+        ];
+        charts.revenue.update();
+    }
+    
+    // 更新ARPU图表
+    if (charts.arpu) {
+        charts.arpu.data.labels = labels;
+        charts.arpu.data.datasets = [
+            {
+                label: 'ARPU',
+                data: arpuData,
+                borderColor: '#dc3545',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: arpuData.map(() => 4.5),
+                pointHoverRadius: 6,
+                pointBackgroundColor: arpuData.map((_, index) => {
+                    if (index === arpuMaxIndex) return '#28a745';
+                    if (index === arpuMinIndex) return '#dc3545';
+                    return '#ffffff';
+                }),
+                pointBorderColor: arpuData.map((_, index) => index === arpuMaxIndex ? '#28a745' : (index === arpuMinIndex ? '#dc3545' : '#dc3545')),
+                pointBorderWidth: arpuData.map((_, index) => (index === arpuMaxIndex || index === arpuMinIndex ? 3 : 2))
+            },
+            {
+                label: '均额',
+                data: new Array(arpuData.length).fill(avgArpu),
+                borderColor: '#6c757d',
+                backgroundColor: 'transparent',
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+            }
+        ];
+        charts.arpu.update();
+    }
+}
+
+// 计算并更新排行图表
+async function updateRankCharts() {
+    if (!channelConfig || !channelConfig.channel_priority || !selectedChannel) return;
+
+    const dateRange = $('#dateRange').data('daterangepicker');
+    const startDate = dateRange.startDate.format('YYYY-MM-DD');
+    const endDate = dateRange.endDate.format('YYYY-MM-DD');
+    const timeGroup = document.querySelector('input[name="timeGroup"]:checked').value;
+
+    const channels = channelConfig.channel_priority;
+    try {
+        const requests = channels.map(ch => fetch(`/api/channel-analysis?channel=${encodeURIComponent(ch)}&start_date=${startDate}&end_date=${endDate}&time_group=${timeGroup}`));
+        const responses = await Promise.all(requests);
+        const allData = await Promise.all(responses.map(r => r.ok ? r.json() : Promise.resolve([])));
+
+        // 使用第一条数据的 labels 作为时间轴（按时间升序：左->右）
+        const labels = (allData[0] || []).slice().reverse().map(row => row.date);
+        const channelIndex = channels.indexOf(selectedChannel);
+
+        // 参与比较的渠道总数：在当前时间段内任一指标有数据的渠道数（newUser/active/gain 任一 > 0）
+        const hasAnyData = (arr) => Array.isArray(arr) && arr.some(row => (Number(row.newUser||0) + Number(row.active||0) + Number(row.gain||0)) > 0);
+        const participatingChannels = allData.filter(hasAnyData).length || channels.length;
+
+        // 辅助函数：按时间索引获取某渠道在该索引的值
+        const seriesAt = (idx, key) => allData.map(chArr => {
+            const arr = (chArr || []).slice().reverse();
+            return (arr[idx] && arr[idx][key]) ? Number(arr[idx][key]) : 0;
+        });
+
+        const rankOf = (values, targetIdx) => {
+            // values: 所有渠道在某时刻的值数组（降序大为优）
+            const sorted = [...values].map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+            const pos = sorted.findIndex(e => e.i === targetIdx);
+            // 返回从 1 开始的名次：1 表示第一名
+            return pos >= 0 ? pos + 1 : null;
+        };
+
+        const newUserRanks = labels.map((_, i) => rankOf(seriesAt(i, 'newUser'), channelIndex));
+        const activeRanks = labels.map((_, i) => rankOf(seriesAt(i, 'active'), channelIndex));
+        const revenueRanks = labels.map((_, i) => rankOf(seriesAt(i, 'gain'), channelIndex));
+        // ARPU 排名：按对应项的总收入/总活跃（每个时间桶内，已聚合），使用字段 ARPU，如无则按 gain/active 计算
+        const arpuSeriesAt = (idx) => allData.map(chArr => {
+            const arr = (chArr || []).slice().reverse();
+            const row = arr[idx] || {};
+            const g = Number(row.gain || 0);
+            const a = Number(row.active || 0);
+            if (row.ARPU != null) return Number(row.ARPU);
+            return a > 0 ? g / a : 0;
+        });
+        const arpuRanks = labels.map((_, i) => rankOf(arpuSeriesAt(i), channelIndex));
+
+        const totalChannels = participatingChannels;
+        const sanitize = (arr) => arr.map(v => (v == null || isNaN(v)) ? totalChannels : Number(v));
+        const newUserRanksData = sanitize(newUserRanks);
+        const activeRanksData = sanitize(activeRanks);
+        const revenueRanksData = sanitize(revenueRanks);
+        const arpuRanksData = sanitize(arpuRanks);
+
+        // 计算平均名次（保留一位小数）
+        const avg = (arr) => arr.length ? (arr.reduce((s, v) => s + Number(v || 0), 0) / arr.length) : 0;
+        const setMeta = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+        setMeta('newUserRankAvg', `平均名次: ${avg(newUserRanksData).toFixed(1)}`);
+        setMeta('activeUserRankAvg', `平均名次: ${avg(activeRanksData).toFixed(1)}`);
+        setMeta('revenueUserRankAvg', `平均名次: ${avg(revenueRanksData).toFixed(1)}`);
+        setMeta('arpuUserRankAvg', `平均名次: ${avg(arpuRanksData).toFixed(1)}`);
+
+        // 同步“情况总览”平均名次
+        // 情况总览行3
+        setMeta('newUserRankAvgVal', `${avg(newUserRanksData).toFixed(1)}`);
+        setMeta('activeRankAvgVal', `${avg(activeRanksData).toFixed(1)}`);
+        setMeta('revenueRankAvgVal', `${avg(revenueRanksData).toFixed(1)}`);
+        setMeta('arpuRankAvgVal', `${avg(arpuRanksData).toFixed(1)}`);
+
+        // 更新排行图表
+        if (charts.rankNewUser) {
+            charts.rankNewUser.data.labels = labels;
+            charts.rankNewUser.data.datasets = [{
+                label: '新增排行',
+                data: newUserRanksData,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0,123,255,0.08)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: newUserRanksData.map(() => 4.5),
+                pointHoverRadius: 6
+            }];
+            charts.rankNewUser.options.scales.y = {
+                ...charts.rankNewUser.options.scales.y,
+                reverse: true,
+                min: 0,
+                max: totalChannels,
+                suggestedMin: 1,
+                suggestedMax: totalChannels,
+                bounds: 'ticks',
+                ticks: { ...charts.rankNewUser.options.scales.y.ticks, stepSize: 1, padding: 0, precision: 0, callback: v => Number(v).toFixed(0) }
+            };
+            charts.rankNewUser.update();
+        }
+        if (charts.rankActive) {
+            charts.rankActive.data.labels = labels;
+            charts.rankActive.data.datasets = [{
+                label: '活跃排行',
+                data: activeRanksData,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40,167,69,0.08)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: activeRanksData.map(() => 4.5),
+                pointHoverRadius: 6
+            }];
+            charts.rankActive.options.scales.y = {
+                ...charts.rankActive.options.scales.y,
+                reverse: true,
+                min: 0,
+                max: totalChannels,
+                suggestedMin: 1,
+                suggestedMax: totalChannels,
+                bounds: 'ticks',
+                ticks: { ...charts.rankActive.options.scales.y.ticks, stepSize: 1, padding: 0, precision: 0, callback: v => Number(v).toFixed(0) }
+            };
+            charts.rankActive.update();
+        }
+        if (charts.rankRevenue) {
+            charts.rankRevenue.data.labels = labels;
+            charts.rankRevenue.data.datasets = [{
+                label: '收入排行',
+                data: revenueRanksData,
+                borderColor: '#ffc107',
+                backgroundColor: 'rgba(255,193,7,0.08)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: revenueRanksData.map(() => 4.5),
+                pointHoverRadius: 6
+            }];
+            charts.rankRevenue.options.scales.y = {
+                ...charts.rankRevenue.options.scales.y,
+                reverse: true,
+                min: 0,
+                max: totalChannels,
+                suggestedMin: 1,
+                suggestedMax: totalChannels,
+                bounds: 'ticks',
+                ticks: { ...charts.rankRevenue.options.scales.y.ticks, stepSize: 1, padding: 0, precision: 0, callback: v => Number(v).toFixed(0) }
+            };
+            charts.rankRevenue.update();
+        }
+        if (charts.rankArpu) {
+            charts.rankArpu.data.labels = labels;
+            charts.rankArpu.data.datasets = [{
+                label: 'ARPU排行',
+                data: arpuRanksData,
+                borderColor: '#dc3545',
+                backgroundColor: 'rgba(220,53,69,0.08)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: arpuRanksData.map(() => 4.5),
+                pointHoverRadius: 6
+            }];
+            charts.rankArpu.options.scales.y = {
+                ...charts.rankArpu.options.scales.y,
+                reverse: true,
+                min: 0,
+                max: totalChannels,
+                suggestedMin: 1,
+                suggestedMax: totalChannels,
+                bounds: 'ticks',
+                ticks: { ...charts.rankArpu.options.scales.y.ticks, stepSize: 1, padding: 0, precision: 0, callback: v => Number(v).toFixed(0) }
+            };
+            charts.rankArpu.update();
+        }
+    } catch (e) {
+        console.error('加载排行数据出错:', e);
+    }
+}
+
+// 格式化数字
+function formatNumber(num) {
+    if (num === null || num === undefined) return '-';
+    return num.toLocaleString();
+}
+
+// 格式化货币
+function formatCurrency(num) {
+    if (num === null || num === undefined) return '-';
+    return '¥' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// 格式化百分比
+function formatPercentage(num) {
+    if (num === null || num === undefined) return '-';
+    return (num * 100).toFixed(2) + '%';
+}
+</script>
+{% endblock %}
