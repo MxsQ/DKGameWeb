@@ -219,3 +219,186 @@ def import_rainbow_excel(file_path: str, game_id: str) -> Dict:
         'updated': updated_count,
         'total': inserted_count + updated_count
     } 
+
+
+def _parse_wg_date_str(date_str: str) -> datetime:
+    """解析WG日期字符串，格式可能为 2025-09-02(二) -> 2025-09-02"""
+    if isinstance(date_str, datetime):
+        return date_str
+    s = str(date_str).strip()
+    if '(' in s:
+        s = s.split('(', 1)[0].strip()
+    # 复用已有解析器
+    return parse_date(s)
+
+
+def import_wg_excel(file_path: str, game_id: str, alias: str) -> Dict:
+    """导入彩虹WG数据excel，按规则合并并写入数据库。
+
+    规则：
+    - 表头映射：
+      日期->date，渠道名称->channel，"WG包" 固定为 category，
+      新注册用户数->newUser，流水收入(元)->gain，付费用户数->payUser。
+    - 如果【渠道名称】与下拉别名相同，则渠道=WeGame，否则= X8。
+    - 将 X8 渠道按日期聚合：newUser/payUser/gain 求和，聚合后渠道= X8。
+    - 日期如 2025-09-02(二) 需转为 2025-09-02。
+    - 其余字段无则填 0 或 0.0。
+    """
+    ensure_game_data_table()
+
+    wb = openpyxl.load_workbook(file_path, data_only=True)
+    ws = wb.active
+
+    header_row = [cell.value if cell.value is not None else '' for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+    header_index: Dict[str, int] = {}
+    wg_header_map = {
+        '日期': 'date',
+        '渠道名称': 'channel',
+        '新注册用户数': 'newUser',
+        '流水收入(元)': 'gain',
+        '付费用户数': 'payUser',
+    }
+    for idx, title in enumerate(header_row):
+        title_str = str(title).strip()
+        if title_str in wg_header_map:
+            header_index[wg_header_map[title_str]] = idx
+
+    required = ['date', 'channel']
+    missing = [k for k in required if k not in header_index]
+    if missing:
+        raise ValueError('缺少必要列: ' + ','.join(missing))
+
+    alias_norm = (alias or '').strip().lower()
+
+    # 暂存行：WeGame 直接存，X8 先汇总
+    x8_by_date = {}
+    wegame_rows = []
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row is None:
+            continue
+        raw_date = row[header_index['date']]
+        raw_channel = row[header_index['channel']]
+        if raw_channel is None:
+            continue
+
+        date_val = _parse_wg_date_str(raw_date)
+        channel_raw = str(raw_channel).strip()
+        channel_norm = channel_raw.lower()
+        mapped_channel = 'WeGame' if channel_norm == alias_norm and alias_norm != '' else 'X8'
+
+        new_user = parse_int(row[header_index.get('newUser')]) if 'newUser' in header_index else 0
+        pay_user = parse_int(row[header_index.get('payUser')]) if 'payUser' in header_index else 0
+        gain_val = parse_float(row[header_index.get('gain')]) if 'gain' in header_index else 0.0
+
+        if mapped_channel == 'X8':
+            key = date_val.date()
+            agg = x8_by_date.get(key)
+            if not agg:
+                x8_by_date[key] = {
+                    'date': date_val,
+                    'newUser': new_user,
+                    'payUser': pay_user,
+                    'gain': gain_val,
+                }
+            else:
+                agg['newUser'] += new_user
+                agg['payUser'] += pay_user
+                agg['gain'] += gain_val
+        else:
+            wegame_rows.append({
+                'date': date_val,
+                'channel': 'WeGame',
+                'newUser': new_user,
+                'payUser': pay_user,
+                'gain': gain_val,
+            })
+
+    # 组装最终插入/更新的数据
+    insert_data = []
+    update_data = []
+
+    # WeGame 行
+    for item in wegame_rows:
+        row_id = generate_game_data_id(item['date'], item['channel'])
+        params = (
+            row_id,
+            game_id,
+            item['date'],
+            'WG包',
+            item['channel'],
+            0,  # daNewUser
+            item['newUser'],
+            0,  # active
+            item['payUser'],
+            item['gain'],
+            0.0,  # ARPU
+            0.0,  # ARPPU
+            0.0,  # DAY1
+            0.0,  # DAY7
+        )
+        if check_record_exists(row_id):
+            update_data.append(params)
+        else:
+            insert_data.append(params)
+
+    # X8 聚合行
+    for key, agg in x8_by_date.items():
+        date_val = agg['date']
+        channel_val = 'X8'
+        row_id = generate_game_data_id(date_val, channel_val)
+        params = (
+            row_id,
+            game_id,
+            date_val,
+            'WG包',
+            channel_val,
+            0,
+            agg['newUser'],
+            0,
+            agg['payUser'],
+            agg['gain'],
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        )
+        if check_record_exists(row_id):
+            update_data.append(params)
+        else:
+            insert_data.append(params)
+
+    # 批量入库
+    inserted_count = 0
+    updated_count = 0
+    conn = get_connection()
+    with conn:
+        with conn.cursor() as cur:
+            if insert_data:
+                insert_sql = (
+                    'INSERT INTO `gameData` '
+                    '(`id`,`gameID`,`date`,`category`,`channel`,`daNewUser`,`newUser`,`active`,`payUser`,`gain`,`ARPU`,`ARPPU`,`DAY1`,`DAY7`) '
+                    'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+                )
+                cur.executemany(insert_sql, insert_data)
+                inserted_count = len(insert_data)
+
+            if update_data:
+                update_sql = (
+                    'UPDATE `gameData` SET '
+                    '`gameID`=%s,`date`=%s,`category`=%s,`channel`=%s,`daNewUser`=%s,`newUser`=%s,`active`=%s,'
+                    '`payUser`=%s,`gain`=%s,`ARPU`=%s,`ARPPU`=%s,`DAY1`=%s,`DAY7`=%s '
+                    'WHERE `id`=%s'
+                )
+                update_params = []
+                for params in update_data:
+                    update_params.append(params[1:] + (params[0],))
+                cur.executemany(update_sql, update_params)
+                updated_count = len(update_data)
+        conn.commit()
+
+    return {
+        'inserted': inserted_count,
+        'updated': updated_count,
+        'total': inserted_count + updated_count
+    }

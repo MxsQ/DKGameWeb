@@ -32,6 +32,33 @@
     <button id="btn-import-rainbow" class="btn-primary">导入彩虹数据</button>
 </div>
 
+<div style="margin-top: 2rem;">
+    <h3 id="import-rainbow-wg">导入彩虹WG数据</h3>
+    <button id="btn-import-wg" class="btn-primary">导入彩虹WG数据</button>
+    <!-- 模态框 - 导入彩虹WG数据 -->
+    <div id="modal-import-wg" class="modal hidden">
+        <div class="modal-content">
+            <h3>导入彩虹WG数据</h3>
+            <div class="form-group">
+                <label for="wg-game-select">选择游戏</label>
+                <select id="wg-game-select"></select>
+            </div>
+            <div class="form-group">
+                <label for="wg-excel">选择Excel文件</label>
+                <input type="file" id="wg-excel" accept=".xlsx,.xls" />
+            </div>
+            <div class="form-group">
+                <label for="wg-alias-select">WeGame别名</label>
+                <select id="wg-alias-select"></select>
+            </div>
+            <div class="modal-actions">
+                <button id="wg-cancel" class="btn-secondary">取消</button>
+                <button id="wg-confirm" class="btn-primary">录入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 模态框 - 导入彩虹数据 -->
 <div id="modal-import-rainbow" class="modal hidden">
     <div class="modal-content">
@@ -153,6 +180,11 @@
             toast.classList.add('hidden');
         }, 3000);
     }
+    // 暴露到全局，便于其他脚本调用统一的提示
+    window.showToast = showToast;
 })();
 </script>
+<!-- 依赖与页面脚本（按需加载） -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/static/js/wg_import.js"></script>
 {% endblock %} 
