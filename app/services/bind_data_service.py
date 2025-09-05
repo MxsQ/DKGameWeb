@@ -68,6 +68,7 @@ def bind_data_by_dimensions(raw_data: List[Dict[str, Any]],
                 'payUser': 0,
                 'gain': 0.0,
                 'ARPU': 0.0,
+                'ARPPU': 0.0,
                 'DAY1': 0.0,
                 'DAY7': 0.0,
                 'total_retention1': 0.0,  # 用于计算加权平均
@@ -108,6 +109,12 @@ def bind_data_by_dimensions(raw_data: List[Dict[str, Any]],
             agg['ARPU'] = round(agg['gain'] / agg['active'], 2)
         else:
             agg['ARPU'] = 0.0
+        
+        # 计算ARPPU = 收入总值 / 总付费用户，保留两位小数
+        if agg['payUser'] > 0:
+            agg['ARPPU'] = round(agg['gain'] / agg['payUser'], 2)
+        else:
+            agg['ARPPU'] = 0.0
         
         # 移除临时字段
         del agg['total_retention1']

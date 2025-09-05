@@ -343,6 +343,31 @@ tr:hover {
     align-items: center;
 }
 
+/* 现代化的折叠按钮样式 */
+.charts-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    background: #fff;
+    color: #667085;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+.charts-toggle:hover { 
+    background: #f8f9fa; 
+    color: #344054; 
+}
+.charts-toggle .icon { 
+    transition: transform .2s ease; 
+}
+.chart-section.collapsed .charts-toggle .icon { 
+    transform: rotate(180deg); 
+}
+
 .section-header h3 {
     color: #667eea;
     margin: 0;
@@ -357,6 +382,37 @@ tr:hover {
 .chart-container {
     padding: 2rem;
     min-height: 300px;
+}
+
+/* 数据详情页面图表样式 */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+.charts-grid .chart-container {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+}
+
+.charts-grid .chart-container h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: #495057;
+    font-weight: 600;
+    text-align: center;
+}
+
+.charts-grid .chart-container canvas {
+    flex: 1;
+    max-height: 250px;
 }
 
 .chart-placeholder {
@@ -447,6 +503,22 @@ tr:hover {
     
     .data-table th, .data-table td {
         padding: 0.5rem 0.25rem;
+    }
+    
+    /* 数据详情页面图表响应式 */
+    .charts-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .charts-grid .chart-container {
+        min-height: 300px;
+        padding: 1rem;
+    }
+    
+    .charts-grid .chart-container canvas {
+        max-height: 200px;
     }
 }
 
@@ -660,6 +732,7 @@ tr:hover {
     white-space: nowrap;
 }
 
+
 /* 渠道分析页面样式 */
 .channel-selection {
     background: white;
@@ -669,10 +742,95 @@ tr:hover {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.channel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
 .channel-selection h3 {
-    margin-bottom: 1rem;
+    margin: 0;
     color: #333;
     font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.channel-selection .dimension-group {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.channel-selection .dimension-group label {
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.channel-selection .radio-group {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.channel-selection .radio-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    min-width: 50px;
+    justify-content: center;
+    position: relative;
+}
+
+.channel-selection .radio-item:hover {
+    background-color: #e9ecef;
+    border-color: #007bff;
+}
+
+.channel-selection .radio-item input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    margin: 0;
+    width: 0;
+    height: 0;
+}
+
+.channel-selection .radio-item span {
+    font-weight: 500;
+    color: #495057;
+    font-size: 0.85rem;
+}
+
+.channel-selection .radio-item:has(input[type="radio"]:checked) {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.channel-selection .radio-item:has(input[type="radio"]:checked) span {
+    color: white;
+    font-weight: 600;
+}
+
+/* 兼容性：使用:checked伪类选择器 */
+.channel-selection .radio-item input[type="radio"]:checked + span {
+    color: white;
+    font-weight: 600;
+}
+
+.channel-selection .radio-item:has(input[type="radio"]:checked),
+.channel-selection .radio-item input[type="radio"]:checked {
+    background-color: #007bff;
+    border-color: #007bff;
 }
 
 .channel-list {
@@ -875,6 +1033,18 @@ tr:hover {
     min-height: 0;
 }
 
+/* 数据图表折叠样式 */
+.chart-section.collapsed {
+    padding-bottom: 0;
+}
+.chart-section.collapsed .charts-grid {
+    display: none;
+}
+.chart-section.collapsed .section-header {
+    border-bottom: none;
+    padding-bottom: 0.5rem;
+}
+
 .chart-container h4 {
     margin: 0 0 0.5rem 0;
     font-size: 0.9rem;
@@ -938,5 +1108,41 @@ tr:hover {
     
     .radio-group {
         flex-wrap: wrap;
+    }
+    
+    /* 渠道选择区域响应式 */
+    .channel-selection {
+        padding: 1rem;
+    }
+    
+    .channel-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .channel-selection .dimension-group {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .channel-selection .radio-group {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .channel-selection .radio-item {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .channel-list {
+        gap: 0.4rem;
+    }
+    
+    .channel-item label {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
     }
 } 

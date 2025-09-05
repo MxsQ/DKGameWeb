@@ -20,5 +20,6 @@ alwaysApply: true
 9.在我有需要的时候，把项目结构更新到下面的 “当前项目结构” 区域
 10.[db.mdc](mdc:.cursor/rules/db.mdc) 包含了所有的表结构，使用它来了解所有的表结构，确保正确访问
 11. [views.py](mdc:app/views.py) 只做路由接收请求，不处理具体事务，将请求转发到对应的处理类进行处理
+12. 除公用的html外，单独的html的所涉及到到css和js应做好分离
 
 # 当前项目结构
