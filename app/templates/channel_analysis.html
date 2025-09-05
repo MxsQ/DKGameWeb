@@ -633,7 +633,15 @@ function renderDataTable(data) {
         return;
     }
     
-    tbody.innerHTML = data.map(row => `
+    // 对数据进行排序：按时间降序（最新的在前）
+    const sortedData = [...data].sort((a, b) => {
+        // 解析日期字符串进行比较
+        const dateA = parseDateForSorting(a.date);
+        const dateB = parseDateForSorting(b.date);
+        return dateB - dateA; // 降序
+    });
+    
+    tbody.innerHTML = sortedData.map(row => `
         <tr>
             <td>${row.date}</td>
             <td class="channel-col">${row.channel || '-'}</td>
@@ -667,7 +675,13 @@ function updateCharts(data) {
     }
     
     // 准备图表数据（按时间升序：左->右）
-    const asc = [...data].reverse();
+    // 先按时间降序排序，然后反转得到升序
+    const sortedData = [...data].sort((a, b) => {
+        const dateA = parseDateForSorting(a.date);
+        const dateB = parseDateForSorting(b.date);
+        return dateB - dateA; // 降序
+    });
+    const asc = [...sortedData].reverse();
     const labels = asc.map(row => row.date);
     const newUserData = asc.map(row => row.newUser || 0);
     const activeUserData = asc.map(row => row.active || 0);
@@ -924,7 +938,14 @@ async function updateRankCharts() {
         const allData = await Promise.all(responses.map(r => r.ok ? r.json() : Promise.resolve([])));
 
         // 使用第一条数据的 labels 作为时间轴（按时间升序：左->右）
-        const labels = (allData[0] || []).slice().reverse().map(row => row.date);
+        // 先对第一条数据进行排序，然后反转得到升序
+        const firstChannelData = (allData[0] || []).slice();
+        const sortedFirstChannel = firstChannelData.sort((a, b) => {
+            const dateA = parseDateForSorting(a.date);
+            const dateB = parseDateForSorting(b.date);
+            return dateB - dateA; // 降序
+        });
+        const labels = [...sortedFirstChannel].reverse().map(row => row.date);
         const channelIndex = channels.indexOf(selectedChannel);
 
         // 参与比较的渠道总数：在当前时间段内任一指标有数据的渠道数（newUser/active/gain 任一 > 0）
@@ -933,7 +954,13 @@ async function updateRankCharts() {
 
         // 辅助函数：按时间索引获取某渠道在该索引的值
         const seriesAt = (idx, key) => allData.map(chArr => {
-            const arr = (chArr || []).slice().reverse();
+            // 对每个渠道的数据也进行排序
+            const sortedChArr = (chArr || []).slice().sort((a, b) => {
+                const dateA = parseDateForSorting(a.date);
+                const dateB = parseDateForSorting(b.date);
+                return dateB - dateA; // 降序
+            });
+            const arr = [...sortedChArr].reverse(); // 反转得到升序
             return (arr[idx] && arr[idx][key]) ? Number(arr[idx][key]) : 0;
         });
 
@@ -950,7 +977,13 @@ async function updateRankCharts() {
         const revenueRanks = labels.map((_, i) => rankOf(seriesAt(i, 'gain'), channelIndex));
         // ARPU 排名：按对应项的总收入/总活跃（每个时间桶内，已聚合），使用字段 ARPU，如无则按 gain/active 计算
         const arpuSeriesAt = (idx) => allData.map(chArr => {
-            const arr = (chArr || []).slice().reverse();
+            // 对每个渠道的数据也进行排序
+            const sortedChArr = (chArr || []).slice().sort((a, b) => {
+                const dateA = parseDateForSorting(a.date);
+                const dateB = parseDateForSorting(b.date);
+                return dateB - dateA; // 降序
+            });
+            const arr = [...sortedChArr].reverse(); // 反转得到升序
             const row = arr[idx] || {};
             const g = Number(row.gain || 0);
             const a = Number(row.active || 0);
@@ -960,7 +993,13 @@ async function updateRankCharts() {
         const arpuRanks = labels.map((_, i) => rankOf(arpuSeriesAt(i), channelIndex));
         // ARPPU 排名：使用字段 ARPPU
         const arppuSeriesAt = (idx) => allData.map(chArr => {
-            const arr = (chArr || []).slice().reverse();
+            // 对每个渠道的数据也进行排序
+            const sortedChArr = (chArr || []).slice().sort((a, b) => {
+                const dateA = parseDateForSorting(a.date);
+                const dateB = parseDateForSorting(b.date);
+                return dateB - dateA; // 降序
+            });
+            const arr = [...sortedChArr].reverse(); // 反转得到升序
             const row = arr[idx] || {};
             return Number(row.ARPPU || 0);
         });
@@ -1133,6 +1172,29 @@ function formatCurrency(num) {
 function formatPercentage(num) {
     if (num === null || num === undefined) return '-';
     return (num * 100).toFixed(2) + '%';
+}
+
+// 解析日期用于排序
+function parseDateForSorting(dateStr) {
+    if (!dateStr) return 0;
+    
+    // 处理周格式：8/4-8/10 或 8/25-8/31
+    if (dateStr.includes('-') && dateStr.includes('/')) {
+        // 提取开始日期进行排序
+        const startDateStr = dateStr.split('-')[0].trim();
+        const [month, day] = startDateStr.split('/').map(num => parseInt(num, 10));
+        return new Date(2024, month - 1, day).getTime(); // 使用2024年作为基准年
+    }
+    
+    // 处理月格式：2024-8
+    if (dateStr.includes('-') && !dateStr.includes('/')) {
+        const [year, month] = dateStr.split('-').map(num => parseInt(num, 10));
+        return new Date(year, month - 1, 1).getTime();
+    }
+    
+    // 处理日格式：2024-08-04
+    const date = new Date(dateStr);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
 }
 </script>
 {% endblock %}
