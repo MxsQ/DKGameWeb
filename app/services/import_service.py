@@ -327,7 +327,7 @@ def import_wg_excel(file_path: str, game_id: str, alias: str) -> Dict:
             item['date'],
             'WG包',
             item['channel'],
-            0,  # daNewUser
+            item['newUser'],  # daNewUser 使用 新增用户
             item['newUser'],
             0,  # active
             item['payUser'],
@@ -353,7 +353,7 @@ def import_wg_excel(file_path: str, game_id: str, alias: str) -> Dict:
             date_val,
             'WG包',
             channel_val,
-            0,
+            agg['newUser'],
             agg['newUser'],
             0,
             agg['payUser'],
@@ -369,6 +369,230 @@ def import_wg_excel(file_path: str, game_id: str, alias: str) -> Dict:
             insert_data.append(params)
 
     # 批量入库
+    inserted_count = 0
+    updated_count = 0
+    conn = get_connection()
+    with conn:
+        with conn.cursor() as cur:
+            if insert_data:
+                insert_sql = (
+                    'INSERT INTO `gameData` '
+                    '(`id`,`gameID`,`date`,`category`,`channel`,`daNewUser`,`newUser`,`active`,`payUser`,`gain`,`ARPU`,`ARPPU`,`DAY1`,`DAY7`) '
+                    'VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+                )
+                cur.executemany(insert_sql, insert_data)
+                inserted_count = len(insert_data)
+
+            if update_data:
+                update_sql = (
+                    'UPDATE `gameData` SET '
+                    '`gameID`=%s,`date`=%s,`category`=%s,`channel`=%s,`daNewUser`=%s,`newUser`=%s,`active`=%s,'
+                    '`payUser`=%s,`gain`=%s,`ARPU`=%s,`ARPPU`=%s,`DAY1`=%s,`DAY7`=%s '
+                    'WHERE `id`=%s'
+                )
+                update_params = []
+                for params in update_data:
+                    update_params.append(params[1:] + (params[0],))
+                cur.executemany(update_sql, update_params)
+                updated_count = len(update_data)
+        conn.commit()
+
+    return {
+        'inserted': inserted_count,
+        'updated': updated_count,
+        'total': inserted_count + updated_count
+    }
+
+
+def import_wegame_excel(file_path: str, game_id: str) -> Dict:
+    """导入WeGame数据excel（从第三行开始读），字段映射并批量入库/更新。
+
+    表头映射：
+    - 日期/Date -> date
+    - 新增启动用户/New Launches by Users -> newUser
+    - 启动用户数/Launches by Users -> active
+    - 新进用户次日留存率/2nd Day Rentention for New Users -> DAY1
+
+    固定：channel='WeGame', category='WG包'
+    从第三行(min_row=3)开始读取。
+    """
+    ensure_game_data_table()
+
+    wb = openpyxl.load_workbook(file_path, data_only=True)
+    ws = wb.active
+
+    # 扫描前若干行寻找表头，并做鲁棒匹配（处理“日期\nDate”等情况）
+    def normalize_title(x: str) -> str:
+        s = (x or '').strip()
+        s = s.replace('\n', ' ').replace('\r', ' ')
+        s = ' '.join(s.split())  # collapse spaces
+        return s.lower()
+
+    header_index: Dict[str, int] = {}
+
+    # 候选关键字集合（多语言、多写法）
+    candidates = {
+        'date': ['日期', 'date'],
+        'newUser': ['新增启动用户', 'new launches by users', '新增用户'],
+        'active': ['启动用户数', 'launches by users', '活跃用户'],
+        'DAY1': ['新进用户次日留存率', '2nd day retention for new users', '2nd day rentention for new users', '次日留存'],
+    }
+
+    def try_map_header(titles):
+        idx_map = {}
+        used_indices = set()  # 记录已使用的列索引
+        norm_titles = [normalize_title(str(t) if t is not None else '') for t in titles]
+        
+        # 第一轮：精确匹配
+        for i, nt in enumerate(norm_titles):
+            if not nt or i in used_indices:
+                continue
+            for field, keys in candidates.items():
+                if field in idx_map:
+                    continue
+                for k in keys:
+                    nk = normalize_title(k)
+                    if nk and nk == nt:
+                        idx_map[field] = i
+                        used_indices.add(i)
+                        break
+                if field in idx_map:
+                    break
+        
+        # 第二轮：包含匹配（仅对未匹配的字段）
+        for i, nt in enumerate(norm_titles):
+            if not nt or i in used_indices:
+                continue
+            for field, keys in candidates.items():
+                if field in idx_map:
+                    continue
+                for k in keys:
+                    nk = normalize_title(k)
+                    if nk and (nk in nt or nt in nk):
+                        idx_map[field] = i
+                        used_indices.add(i)
+                        break
+                if field in idx_map:
+                    break
+        return idx_map
+
+    best_map = {}
+    best_row_idx = 1
+    for r in range(1, 6):  # 扫描前5行
+        row_vals = [cell.value if cell.value is not None else '' for cell in next(ws.iter_rows(min_row=r, max_row=r))]
+        idx_map = try_map_header(row_vals)
+        if len(idx_map) > len(best_map):
+            best_map = idx_map
+            best_row_idx = r
+        if len(best_map) >= 3:  # 已找到大部分
+            break
+    header_index = best_map
+
+    required = ['date']
+    missing = [k for k in required if k not in header_index]
+    if missing:
+        raise ValueError('缺少必要列: ' + ','.join(missing))
+
+    insert_data = []
+    update_data = []
+
+    # 数据从第三行开始读取
+    for row in ws.iter_rows(min_row=3, values_only=True):
+        if row is None:
+            continue
+        raw_date = row[header_index['date']]
+        if raw_date is None:
+            continue
+        # 日期可能带(周几)，做清洗
+        date_val = _parse_wg_date_str(raw_date)
+        channel_val = 'WeGame'
+        category_val = 'WG包'
+
+        new_user = parse_int(row[header_index.get('newUser')]) if 'newUser' in header_index else 0
+        active_val = parse_int(row[header_index.get('active')]) if 'active' in header_index else 0
+        day1_val = parse_float(row[header_index.get('DAY1')]) if 'DAY1' in header_index else 0.0
+
+        row_id = generate_game_data_id(date_val, channel_val)
+
+        if check_record_exists(row_id):
+            # 仅更新Excel包含的字段；未包含的字段用旧值。且“新增用户”只影响 newUser，不改动 daNewUser。
+            conn = get_connection()
+            with conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        'SELECT `gameID`,`date`,`category`,`channel`,`daNewUser`,`newUser`,`active`,`payUser`,`gain`,`ARPU`,`ARPPU`,`DAY1`,`DAY7` '
+                        'FROM `gameData` WHERE `id`=%s',
+                        (row_id,)
+                    )
+                    old = cur.fetchone() or {}
+
+            has_new_user = 'newUser' in header_index
+            has_active = 'active' in header_index
+            has_day1 = 'DAY1' in header_index
+
+            merged_game_id = old.get('gameID', game_id)
+            merged_date = old.get('date', date_val)  # 与row_id一致
+            merged_category = old.get('category', category_val)
+            merged_channel = old.get('channel', channel_val)
+            merged_da_new_user = old.get('daNewUser', 0)  # 不随Excel的“新增用户”变化
+            # 容错：如果Excel提供了新增用户但值为0，则沿用旧值，避免被0覆盖
+            if has_new_user:
+                merged_new_user = new_user if new_user != 0 else old.get('newUser', 0)
+            else:
+                merged_new_user = old.get('newUser', 0)
+            # 如果Excel提供了活跃用户但值为0，则保留旧值
+            if has_active:
+                merged_active = active_val if active_val != 0 else old.get('active', 0)
+            else:
+                merged_active = old.get('active', 0)
+            merged_pay_user = old.get('payUser', 0)
+            merged_gain = old.get('gain', 0.0)
+            merged_arpu = old.get('ARPU', 0.0)
+            merged_arppu = old.get('ARPPU', 0.0)
+            # 如果Excel提供了一留但值为0或0.0，则保留旧值
+            if has_day1:
+                merged_day1 = day1_val if day1_val != 0 and day1_val != 0.0 else old.get('DAY1', 0.0)
+            else:
+                merged_day1 = old.get('DAY1', 0.0)
+            merged_day7 = old.get('DAY7', 0.0)
+
+            params = (
+                row_id,
+                merged_game_id,
+                merged_date,
+                merged_category,
+                merged_channel,
+                merged_da_new_user,
+                merged_new_user,
+                merged_active,
+                merged_pay_user,
+                merged_gain,
+                merged_arpu,
+                merged_arppu,
+                merged_day1,
+                merged_day7,
+            )
+            update_data.append(params)
+        else:
+            # 插入：未提供的字段用默认值；daNewUser 使用 new_user
+            params = (
+                row_id,
+                game_id,
+                date_val,
+                category_val,
+                channel_val,
+                new_user,                 # daNewUser 使用新增启动用户
+                new_user,                 # newUser
+                active_val,               # active
+                0,                        # payUser (默认)
+                0.0,                      # gain (默认)
+                0.0,                      # ARPU
+                0.0,                      # ARPPU
+                day1_val,                 # DAY1
+                0.0,                      # DAY7 (未提供)
+            )
+            insert_data.append(params)
+
     inserted_count = 0
     updated_count = 0
     conn = get_connection()

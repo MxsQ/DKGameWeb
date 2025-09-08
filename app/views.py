@@ -6,7 +6,7 @@ import tempfile
 import json
 from datetime import datetime
 from app.services.game_service import list_games, add_game, get_game_data, aggregate_game_data, get_channel_analysis_data
-from app.services.import_service import import_rainbow_excel, import_wg_excel
+from app.services.import_service import import_rainbow_excel, import_wg_excel, import_wegame_excel
 
 main_bp = Blueprint('main', __name__)
 
@@ -154,6 +154,33 @@ def api_import_wg():
         tmp_path = tmp.name
     try:
         result = import_wg_excel(tmp_path, game_id, alias)
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({'message': str(e)}), 400
+    except Exception as e:
+        return jsonify({'message': '导入失败', 'error': str(e)}), 500
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+@main_bp.route('/api/import/wegame', methods=['POST'])
+def api_import_wegame():
+    """导入WeGame数据：接收FormData(game_id,file)，保存临时文件，调用导入服务"""
+    game_id = (request.form.get('game_id') or '').strip()
+    f = request.files.get('file')
+    if not game_id:
+        return jsonify({'message': 'game_id必填'}), 400
+    if not f:
+        return jsonify({'message': 'file必传'}), 400
+
+    suffix = os.path.splitext(f.filename)[1] or '.xlsx'
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        f.save(tmp.name)
+        tmp_path = tmp.name
+    try:
+        result = import_wegame_excel(tmp_path, game_id)
         return jsonify(result)
     except ValueError as e:
         return jsonify({'message': str(e)}), 400

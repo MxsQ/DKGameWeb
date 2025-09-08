@@ -59,6 +59,29 @@
     </div>
 </div>
 
+<div style="margin-top: 2rem;">
+    <h3 id="import-wegame">导入WeGame数据</h3>
+    <button id="btn-import-wegame" class="btn-primary">导入WeGame数据</button>
+    <!-- 模态框 - 导入WeGame数据 -->
+    <div id="modal-import-wegame" class="modal hidden">
+        <div class="modal-content">
+            <h3>导入WeGame数据</h3>
+            <div class="form-group">
+                <label for="wegame-game">选择游戏</label>
+                <select id="wegame-game"></select>
+            </div>
+            <div class="form-group">
+                <label for="wegame-excel">选择Excel文件</label>
+                <input type="file" id="wegame-excel" accept=".xlsx,.xls" />
+            </div>
+            <div class="modal-actions">
+                <button id="wegame-cancel" class="btn-secondary">取消</button>
+                <button id="wegame-confirm" class="btn-primary">录入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 模态框 - 导入彩虹数据 -->
 <div id="modal-import-rainbow" class="modal hidden">
     <div class="modal-content">
@@ -156,6 +179,66 @@
                 closeImport(); 
             }
             else {
+                const parts = [];
+                if(data && data.message) parts.push(data.message);
+                if(data && data.error) parts.push(String(data.error));
+                if(parts.length === 0 && data && data.raw) parts.push(String(data.raw));
+                parts.push('HTTP ' + res.status);
+                alert('导入失败：' + parts.join(' | '));
+            }
+        }catch(err){
+            alert('请求失败：' + (err && err.message ? err.message : String(err)));
+        }
+    });
+
+    // 导入WeGame数据模态框
+    const wegameModal = document.getElementById('modal-import-wegame');
+    const wegameOpen = document.getElementById('btn-import-wegame');
+    const wegameCancel = document.getElementById('wegame-cancel');
+    const wegameConfirm = document.getElementById('wegame-confirm');
+    const wegameGameSelect = document.getElementById('wegame-game');
+    const wegameExcelInput = document.getElementById('wegame-excel');
+
+    function openWegame(){ wegameModal.classList.remove('hidden'); loadWegameGames(); }
+    function closeWegame(){ wegameModal.classList.add('hidden'); if (wegameExcelInput) wegameExcelInput.value=''; }
+    wegameOpen.addEventListener('click', openWegame);
+    wegameCancel.addEventListener('click', closeWegame);
+
+    async function loadWegameGames(){
+        try{
+            const res = await fetch('/api/games/all');
+            const list = await res.json();
+            wegameGameSelect.innerHTML = '';
+            (list || []).forEach((g, idx) => {
+                const opt = document.createElement('option');
+                opt.value = g.id;
+                opt.textContent = g.name;
+                if (idx === 0) opt.selected = true;
+                wegameGameSelect.appendChild(opt);
+            });
+        }catch(e){ wegameGameSelect.innerHTML = ''; }
+    }
+
+    wegameConfirm.addEventListener('click', async function(){
+        const gid = wegameGameSelect.value;
+        const file = wegameExcelInput.files && wegameExcelInput.files[0];
+        if(!gid){ alert('请选择游戏'); return; }
+        if(!file){ alert('请选择Excel文件'); return; }
+        const form = new FormData();
+        form.append('game_id', gid);
+        form.append('file', file);
+        try{
+            const res = await fetch('/api/import/wegame', { method: 'POST', body: form });
+            const raw = await res.text();
+            let data; try { data = JSON.parse(raw); } catch(_) { data = { raw }; }
+            if(res.ok){
+                if (data && data.inserted !== undefined && data.updated !== undefined) {
+                    showToast(`导入完成！新增 ${data.inserted} 条记录，更新 ${data.updated} 条记录，共处理 ${data.total} 条记录`);
+                } else {
+                    showToast('导入成功：' + ((data && data.count) || 0) + ' 条');
+                }
+                closeWegame();
+            } else {
                 const parts = [];
                 if(data && data.message) parts.push(data.message);
                 if(data && data.error) parts.push(String(data.error));
