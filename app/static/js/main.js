@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 为每个导航链接添加点击事件
     navLinks.forEach(link => {
         link.addEventListener('click', function(e) {
-            // 对于data-details页面，允许正常跳转
-            if (this.getAttribute('data-page') === 'data-details') {
+            // 对于需要整页渲染的页面，允许正常跳转
+            if (this.getAttribute('data-page') === 'data-details' || this.getAttribute('data-page') === 'game-overview') {
                 return; // 不阻止默认行为，允许正常跳转
             }
             

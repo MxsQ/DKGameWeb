@@ -5,37 +5,757 @@
 {% block content %}
 <div class="page-header">
     <h2>游戏概览</h2>
-    <p>查看所有游戏的详细统计信息</p>
+    <div class="overview-controls">
+        <div class="control-group">
+            <label class="control-label">时间范围：</label>
+            <input type="text" id="ovDateRange" class="date-range-input" placeholder="选择时间范围" readonly>
+        </div>
+        <div class="control-group">
+            <label class="control-label">时间维度：</label>
+            <div class="radio-group">
+                <label class="radio-item"><input type="radio" name="ovTimeGroup" value="day" checked><span>日</span></label>
+                <label class="radio-item"><input type="radio" name="ovTimeGroup" value="week"><span>周</span></label>
+                <label class="radio-item"><input type="radio" name="ovTimeGroup" value="month"><span>月</span></label>
+            </div>
+        </div>
+        <div class="control-group">
+            <div class="quick-buttons">
+                <button id="quickThis7" class="btn-quick">近一周</button>
+                <button id="quickLastWeek" class="btn-quick">上周</button>
+                <button id="quickThisMonth" class="btn-quick">本月</button>
+                <button id="quickLastMonth" class="btn-quick">上一月</button>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="games-table">
-    {% if games %}
-        <table>
-            <thead>
-                <tr>
-                    <th>游戏名称</th>
-                    <th>总玩家数</th>
-                    <th>活跃玩家</th>
-                    <th>收入</th>
-                    <th>最后更新</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for game in games %}
-                <tr>
-                    <td>{{ game.game_name }}</td>
-                    <td>{{ game.total_players }}</td>
-                    <td>{{ game.active_players }}</td>
-                    <td>¥{{ "%.2f"|format(game.revenue) }}</td>
-                    <td>{{ game.updated_at }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <div class="no-data">
-            <p>暂无游戏数据</p>
+<div style="display:flex; flex-direction:column; gap:18px;">
+    <div class="chart-container">
+        <div class="chart-header">
+            <h4>新增趋势</h4>
+            <div class="chart-stats" id="newUserStats">
+                <span class="stat-item">总新增: <span class="stat-value">-</span></span>
+                <span class="stat-item">日均新增: <span class="stat-value">-</span></span>
+            </div>
         </div>
-    {% endif %}
+        <canvas id="ovNewUserChart" height="240"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-header">
+            <h4>活跃趋势</h4>
+            <div class="chart-stats" id="activeStats">
+                <span class="stat-item">总活跃: <span class="stat-value">-</span></span>
+                <span class="stat-item">日均活跃: <span class="stat-value">-</span></span>
+            </div>
+        </div>
+        <canvas id="ovActiveChart" height="240"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-header">
+            <h4>收入趋势</h4>
+            <div class="chart-stats" id="revenueStats">
+                <span class="stat-item">总收入: <span class="stat-value">-</span></span>
+                <span class="stat-item">日均收入: <span class="stat-value">-</span></span>
+            </div>
+        </div>
+        <canvas id="ovRevenueChart" height="240"></canvas>
+    </div>
 </div>
 {% endblock %} 
+
+{% block scripts %}
+<!-- 依赖库（与 channel_analysis.html 一致） -->
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* 美化时间范围区 */
+.overview-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border: 1px solid #e9ecef;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-label {
+    font-weight: 500;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.date-range-input {
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    min-width: 220px;
+    outline: none;
+    background: #fff;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.date-range-input:focus {
+    box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15);
+    border-color: #0969da;
+}
+
+.radio-group {
+    display: flex;
+    gap: 12px;
+}
+
+.radio-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #495057;
+}
+
+.radio-item input[type="radio"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.radio-item:hover {
+    color: #0969da;
+}
+
+.quick-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-quick {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #d0d7de;
+    background: #f6f8fa;
+    color: #24292f;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-quick:hover {
+    background: #eef1f4;
+    border-color: #0969da;
+    color: #0969da;
+}
+
+.btn-quick:active {
+    background: #dbeafe;
+}
+
+/* 图表标题和统计样式 */
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chart-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #24292f;
+}
+
+.chart-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.stat-item {
+    font-size: 13px;
+    color: #656d76;
+    white-space: nowrap;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: #0969da;
+}
+
+@media (max-width: 768px) {
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .chart-stats {
+        gap: 12px;
+    }
+}
+
+/* 现代化板块背景样式 */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.page-header h2 {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.page-header p {
+    margin: 0;
+    font-size: 16px;
+    opacity: 0.9;
+    font-weight: 400;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.chart-container:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.chart-container h4 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    letter-spacing: -0.02em;
+}
+
+/* 现代化图表样式 */
+.chart-container canvas {
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+}
+
+/* 优化图表字体和间距 */
+.chart-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 图表标题优化 */
+.chart-header h4 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+
+/* 统计信息样式优化 */
+.stat-item {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+}
+
+.stat-value {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+</style>
+<script>
+(function(){
+    // 依赖：与 channel_analysis.html 一致的 daterangepicker 与 Chart.js
+    // 初始化日期范围（默认近一周）
+    function setRange(start, end){
+        $('#ovDateRange').data('daterangepicker').setStartDate(start);
+        $('#ovDateRange').data('daterangepicker').setEndDate(end);
+        loadData();
+    }
+
+    function initRangePicker(){
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - 6);
+        $('#ovDateRange').daterangepicker({
+            startDate: startDate,
+            endDate: endDate,
+            locale: {
+                format: 'YYYY-MM-DD',
+                separator: ' 至 ',
+                applyLabel: '确定', cancelLabel: '取消', fromLabel: '从', toLabel: '到', customRangeLabel: '自定义',
+                weekLabel: 'W',
+                daysOfWeek: ['日','一','二','三','四','五','六'],
+                monthNames: ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'],
+                firstDay: 1
+            },
+            opens: 'center'
+        }, function(){ debounceLoadData(100); });
+    }
+
+    // 快捷时间
+    function wireQuickButtons(){
+        document.getElementById('quickThis7').addEventListener('click', function(){
+            const end = new Date(); const start = new Date(); start.setDate(end.getDate()-6); setRange(start, end);
+        });
+        document.getElementById('quickLastWeek').addEventListener('click', function(){
+            const now = new Date();
+            const day = now.getDay() || 7; // 周一为起点
+            const end = new Date(now); end.setDate(now.getDate()-day);
+            const start = new Date(end); start.setDate(end.getDate()-6);
+            setRange(start, end);
+        });
+        document.getElementById('quickThisMonth').addEventListener('click', function(){
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date();
+            setRange(start, end);
+        });
+        document.getElementById('quickLastMonth').addEventListener('click', function(){
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth()-1, 1);
+            const end = new Date(now.getFullYear(), now.getMonth(), 0);
+            setRange(start, end);
+        });
+    }
+
+    // 优化的十字指示线插件（减少重绘频率）
+    const crosshairPlugin = {
+        id: 'ovCrosshair',
+        afterEvent(chart){
+            const tooltip = chart.tooltip;
+            const active = tooltip && typeof tooltip.getActiveElements === 'function' ? tooltip.getActiveElements() : [];
+            const newHoverIndex = (active && active.length) ? active[0].index : -1;
+            
+            // 只在悬浮索引真正改变时才更新
+            if (chart.$hoverIndex !== newHoverIndex) {
+                chart.$hoverIndex = newHoverIndex;
+                chart.update('none');
+            }
+        },
+        afterDatasetsDraw(chart){
+            const tooltip = chart.tooltip;
+            if (!tooltip || typeof tooltip.getActiveElements !== 'function') return;
+            const active = tooltip.getActiveElements();
+            if (!active || active.length === 0) return;
+            
+            const {ctx, chartArea} = chart;
+            const meta = chart.getDatasetMeta(active[0].datasetIndex);
+            const el = meta && meta.data ? meta.data[active[0].index] : null;
+            if (!el) return;
+            
+            const x = el.x;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4,3]);
+            ctx.beginPath();
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+        }
+    };
+    if (window.Chart && Chart.register){ Chart.register(crosshairPlugin); }
+
+    // 图表
+    let chartNew=null, chartActive=null, chartRevenue=null;
+    function createChart(ctx, label, color){
+        return new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label, data: [], borderColor: color, backgroundColor: color+'22', tension: 0.35, fill: true, pointRadius: 2, pointHoverRadius: 6, pointBorderWidth: 2 }]},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 4, right: 8, bottom: 0, left: 8 }
+                },
+                plugins:{
+                    legend:{ display:false },
+                    tooltip: { 
+                        mode: 'index', 
+                        intersect: false,
+                        backgroundColor: '#000',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#000',
+                        borderWidth: 1,
+                        displayColors: false,
+                        titleFont: { size: 16, weight: 'bold' },
+                        bodyFont: { size: 14, weight: 'bold' }
+                    }
+                },
+                interaction: { mode: 'index', intersect: false, axis: 'x' },
+                scales:{ 
+                    x:{ 
+                        display: true,
+                        title: {
+                            display: true,
+                            text: '日期',
+                            padding: { top: 0, bottom: 0 }
+                        },
+                        ticks: {
+                            padding: 0
+                        }
+                    }, 
+                    y:{ 
+                        beginAtZero: true,
+                        title: {
+                            display: false
+                        },
+                        ticks: {
+                            padding: 0
+                        }
+                    } 
+                }
+            }
+        });
+    }
+
+    function ensureCharts(){
+        if(!chartNew) chartNew = createChart(document.getElementById('ovNewUserChart'), '新增用户', '#007bff');
+        if(!chartActive) chartActive = createChart(document.getElementById('ovActiveChart'), '活跃用户', '#28a745');
+        if(!chartRevenue) chartRevenue = createChart(document.getElementById('ovRevenueChart'), '收入', '#ffc107');
+    }
+
+    // 防抖函数，避免频繁请求
+    let loadDataTimeout = null;
+    function debounceLoadData(delay = 300) {
+        if (loadDataTimeout) clearTimeout(loadDataTimeout);
+        loadDataTimeout = setTimeout(loadData, delay);
+    }
+    
+    // 载入数据并聚合（相同时间粒度加总）
+    async function loadData(){
+        ensureCharts();
+        const dr = $('#ovDateRange').data('daterangepicker');
+        const start = dr.startDate.format('YYYY-MM-DD');
+        const end = dr.endDate.format('YYYY-MM-DD');
+        const timeGroup = document.querySelector('input[name="ovTimeGroup"]:checked').value;
+        
+        // 显示加载状态
+        const charts = [chartNew, chartActive, chartRevenue];
+        charts.forEach(chart => {
+            if (chart) {
+                chart.data.labels = ['加载中...'];
+                chart.data.datasets[0].data = [0];
+                chart.update('none');
+            }
+        });
+        
+        try{
+            const url = `/api/game-data?start_date=${start}&end_date=${end}&time_group=${timeGroup}&channel_group=category`;
+            const res = await fetch(url);
+            const arr = await res.json();
+            const grouped = aggregateByTime(arr, timeGroup);
+            render(grouped.labels, grouped.newUser, grouped.active, grouped.gain);
+        }catch(e){
+            console.error('数据加载失败:', e);
+            render([],[],[],[]);
+        }
+    }
+
+    // 将后端返回的数据，按指定 timeGroup 的日期键进行加总，并保证时间升序
+    function aggregateByTime(rows, timeGroup){
+        const bucket = new Map(); // key: 规范化键, val: {sum}
+        (rows||[]).forEach(r => {
+            const key = normalizeKey(r.date, timeGroup);
+            const cur = bucket.get(key) || { newUser:0, active:0, gain:0 };
+            cur.newUser += Number(r.newUser||0);
+            cur.active += Number(r.active||0);
+            cur.gain += Number(r.gain||0);
+            bucket.set(key, cur);
+        });
+        const items = Array.from(bucket.entries()).map(([key, v]) => ({
+            key,
+            sortDate: parseSortDateFromKey(key, timeGroup),
+            label: formatDisplayLabelFromKey(key, timeGroup),
+            ...v
+        }));
+        items.sort((a,b)=> a.sortDate - b.sortDate);
+        return {
+            labels: items.map(it=>it.label),
+            newUser: items.map(it=>it.newUser),
+            active: items.map(it=>it.active),
+            gain: items.map(it=>it.gain)
+        };
+    }
+
+    // 归一化时间键：将任意格式转换为 YYYY-MM-DD / YYYY-MM / (周一)YYYY-MM-DD
+    function normalizeKey(dateStr, timeGroup){
+        // 兼容后端可能返回的周维度标签 "M/D-M/D"：换算为周一日期键
+        if (timeGroup === 'week' && typeof dateStr === 'string' && dateStr.includes('/')){
+            const m = dateStr.match(/^(\d{1,2})\/(\d{1,2})-(\d{1,2})\/(\d{1,2})$/);
+            if (m){
+                const dr = $('#ovDateRange').data('daterangepicker');
+                const endY = dr ? dr.endDate.year() : (new Date()).getFullYear();
+                let yStart = endY;
+                const startMonth = parseInt(m[1],10);
+                const endMonth = parseInt(m[3],10);
+                if (startMonth > endMonth) { // 跨年
+                    yStart = endY - 1;
+                }
+                const monday = new Date(yStart, startMonth-1, parseInt(m[2],10));
+                const y = monday.getFullYear();
+                const mm = String(monday.getMonth()+1).padStart(2,'0');
+                const dd = String(monday.getDate()).padStart(2,'0');
+                return `${y}-${mm}-${dd}`;
+            }
+        }
+        // 后端已按 time_group 聚合时，多数情况下 date 已是分组键；此处兜底标准化
+        const d = new Date(dateStr);
+        if (isNaN(d)) return String(dateStr);
+        const y = d.getFullYear();
+        const m = String(d.getMonth()+1).padStart(2,'0');
+        const day = String(d.getDate()).padStart(2,'0');
+        if (timeGroup === 'month') return `${y}-${m}`;
+        if (timeGroup === 'week'){
+            const wd = d.getDay();
+            const diff = (wd === 0 ? 6 : wd-1); // 周一为一周开始
+            const monday = new Date(d); monday.setDate(d.getDate()-diff);
+            const ym = monday.getFullYear();
+            const mm = String(monday.getMonth()+1).padStart(2,'0');
+            const dm = String(monday.getDate()).padStart(2,'0');
+            return `${ym}-${mm}-${dm}`;
+        }
+        return `${y}-${m}-${day}`;
+    }
+
+    // 由规范化键得到用于排序的日期（取区间起始日）
+    function parseSortDateFromKey(key, timeGroup){
+        if (timeGroup === 'month'){
+            const m = key.match(/^(\d{4})-(\d{2})$/);
+            if (m) return new Date(parseInt(m[1],10), parseInt(m[2],10)-1, 1);
+        }
+        // day/week 都是 YYYY-MM-DD
+        const d = new Date(key);
+        return isNaN(d) ? new Date(0) : d;
+    }
+
+    // 将规范化键格式化为展示标签：day -> YYYY-MM-DD, week -> M/D-M/D, month -> YYYY-MM
+    function formatDisplayLabelFromKey(key, timeGroup){
+        if (timeGroup === 'month'){
+            return key; // YYYY-MM
+        }
+        if (timeGroup === 'week'){
+            const monday = new Date(key);
+            if (isNaN(monday)) return key;
+            const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+            const sm = monday.getMonth()+1, sd = monday.getDate();
+            const em = sunday.getMonth()+1, ed = sunday.getDate();
+            return sm===em ? `${sm}/${sd}-${ed}` : `${sm}/${sd}-${em}/${ed}`;
+        }
+        // day
+        return key; // YYYY-MM-DD
+    }
+
+    // 缓存极值计算结果，避免重复计算
+    const extremaCache = new Map();
+    
+    function render(labels, newData, activeData, gainData){
+        // 批量更新图表数据，减少重绘次数
+        const charts = [
+            {chart: chartNew, data: newData, color: '#007bff'},
+            {chart: chartActive, data: activeData, color: '#28a745'},
+            {chart: chartRevenue, data: gainData, color: '#ffc107'}
+        ];
+        
+        // 一次性更新所有图表的数据
+        charts.forEach(({chart, data, color}) => {
+            if (chart) {
+                chart.data.labels = labels;
+                chart.data.datasets[0].data = data;
+                applyMinMaxStyle(chart, data, color);
+            }
+        });
+        
+        // 批量更新所有图表（减少重绘次数）
+        Chart.helpers.each(charts, ({chart}) => {
+            if (chart) chart.update('none');
+        });
+        
+        // 更新统计信息
+        updateChartStats(newData, activeData, gainData);
+    }
+    
+    // 更新图表统计信息
+    function updateChartStats(newData, activeData, gainData) {
+        const timeGroup = document.querySelector('input[name="ovTimeGroup"]:checked').value;
+        
+        // 计算总数和均数
+        const newUserTotal = newData.reduce((sum, val) => sum + val, 0);
+        const activeTotal = activeData.reduce((sum, val) => sum + val, 0);
+        const revenueTotal = gainData.reduce((sum, val) => sum + val, 0);
+        
+        // 根据时间维度计算均数
+        const periodCount = newData.length;
+        const periodLabel = getPeriodLabel(timeGroup);
+        
+        const newUserAvg = periodCount > 0 ? Math.round(newUserTotal / periodCount) : 0;
+        const activeAvg = periodCount > 0 ? Math.round(activeTotal / periodCount) : 0;
+        const revenueAvg = periodCount > 0 ? Math.round(revenueTotal / periodCount * 100) / 100 : 0;
+        
+        // 更新新增统计
+        const newUserStats = document.getElementById('newUserStats');
+        if (newUserStats) {
+            newUserStats.innerHTML = `
+                <span class="stat-item">总新增: <span class="stat-value">${formatNumber(newUserTotal)}</span></span>
+                <span class="stat-item">${periodLabel}新增: <span class="stat-value">${formatNumber(newUserAvg)}</span></span>
+            `;
+        }
+        
+        // 更新活跃统计
+        const activeStats = document.getElementById('activeStats');
+        if (activeStats) {
+            activeStats.innerHTML = `
+                <span class="stat-item">总活跃: <span class="stat-value">${formatNumber(activeTotal)}</span></span>
+                <span class="stat-item">${periodLabel}活跃: <span class="stat-value">${formatNumber(activeAvg)}</span></span>
+            `;
+        }
+        
+        // 更新收入统计
+        const revenueStats = document.getElementById('revenueStats');
+        if (revenueStats) {
+            revenueStats.innerHTML = `
+                <span class="stat-item">总收入: <span class="stat-value">${formatCurrency(revenueTotal)}</span></span>
+                <span class="stat-item">${periodLabel}收入: <span class="stat-value">${formatCurrency(revenueAvg)}</span></span>
+            `;
+        }
+    }
+    
+    // 获取时间维度标签
+    function getPeriodLabel(timeGroup) {
+        switch(timeGroup) {
+            case 'day': return '日均';
+            case 'week': return '周均';
+            case 'month': return '月均';
+            default: return '日均';
+        }
+    }
+    
+    // 格式化数字
+    function formatNumber(num) {
+        if (num === null || num === undefined) return '-';
+        return num.toLocaleString('zh-CN');
+    }
+    
+    // 格式化货币
+    function formatCurrency(amount) {
+        if (amount === null || amount === undefined) return '-';
+        return amount.toLocaleString('zh-CN', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+    }
+    
+    function applyMinMaxStyle(chart, data, color){
+        const dataset = chart.data.datasets[0];
+        const dataKey = data.join(',');
+        
+        // 使用缓存避免重复计算极值
+        let extrema = extremaCache.get(dataKey);
+        if (!extrema) {
+            let minIdx = -1, maxIdx = -1, minVal = Infinity, maxVal = -Infinity;
+            data.forEach((v,i)=>{ 
+                if(v<minVal){minVal=v;minIdx=i;} 
+                if(v>maxVal){maxVal=v;maxIdx=i;} 
+            });
+            extrema = {minIdx, maxIdx, minVal, maxVal};
+            extremaCache.set(dataKey, extrema);
+        }
+        
+        const {minIdx, maxIdx} = extrema;
+        
+        // 预计算样式数组，避免动态函数调用
+        const pointRadius = data.map((_, i) => {
+            if (i === minIdx || i === maxIdx) return 5;
+            return 2;
+        });
+        
+        const pointBackgroundColor = data.map((_, i) => {
+            if (i === maxIdx) return '#dc3545';
+            if (i === minIdx) return '#17a2b8';
+            return color;
+        });
+        
+        const pointBorderColor = data.map((_, i) => {
+            if (i === maxIdx || i === minIdx) return '#111';
+            return color;
+        });
+        
+        const pointBorderWidth = data.map((_, i) => {
+            if (i === maxIdx || i === minIdx) return 2;
+            return 1.5;
+        });
+        
+        // 应用预计算的样式
+        dataset.pointRadius = pointRadius;
+        dataset.pointBackgroundColor = pointBackgroundColor;
+        dataset.pointBorderColor = pointBorderColor;
+        dataset.pointBorderWidth = pointBorderWidth;
+        dataset.pointStyle = 'circle';
+        
+        // 动态悬浮样式（仅在悬浮时计算）
+        dataset.pointHoverRadius = (ctx) => {
+            const i = ctx.dataIndex;
+            const hover = ctx.chart.$hoverIndex;
+            if (i === hover) return 6;
+            return pointRadius[i];
+        };
+        
+        dataset.pointHoverBackgroundColor = (ctx) => {
+            const i = ctx.dataIndex;
+            const hover = ctx.chart.$hoverIndex;
+            if (i === hover) return '#111';
+            return pointBackgroundColor[i];
+        };
+        
+        dataset.pointHoverBorderWidth = (ctx) => {
+            const i = ctx.dataIndex;
+            const hover = ctx.chart.$hoverIndex;
+            if (i === hover) return 3;
+            return pointBorderWidth[i];
+        };
+        
+        dataset.pointHoverStyle = (ctx) => {
+            const i = ctx.dataIndex;
+            const hover = ctx.chart.$hoverIndex;
+            if (i === hover) return 'rectRot';
+            return 'circle';
+        };
+    }
+
+    // 事件处理（使用防抖）
+    document.addEventListener('change', function(e){
+        if (e.target && e.target.name === 'ovTimeGroup') {
+            debounceLoadData(200); // 200ms防抖
+        }
+    });
+
+    // 启动
+    initRangePicker();
+    wireQuickButtons();
+    // 首次加载（使用防抖）
+    debounceLoadData(100);
+})();
+</script>
+{% endblock %}

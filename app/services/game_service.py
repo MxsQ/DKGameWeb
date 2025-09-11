@@ -82,7 +82,20 @@ def get_game_data(start_date=None, end_date=None, game_id=None):
     with conn:
         with conn.cursor() as cur:
             cur.execute(sql, params)
-            return list(cur.fetchall())
+            rows = list(cur.fetchall())
+
+    # 将日期字段序列化为字符串，避免前端解析失败
+    serialized = []
+    for r in rows:
+        item = dict(r)
+        d = item.get('date')
+        if d is not None:
+            try:
+                item['date'] = d.strftime('%Y-%m-%d')
+            except Exception:
+                item['date'] = str(d)
+        serialized.append(item)
+    return serialized
 
 
 

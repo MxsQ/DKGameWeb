@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, redirect, url_for
 import hashlib
 import pymysql
 import os
@@ -52,8 +52,8 @@ MOCK_GAMES = [
 
 @main_bp.route('/')
 def index():
-    """首页 - 游戏概览"""
-    return render_template('index.html', games=MOCK_GAMES)
+    """首页 - 重定向到游戏概览页"""
+    return redirect(url_for('main.game_overview'))
 
 @main_bp.route('/game-overview')
 def game_overview():
